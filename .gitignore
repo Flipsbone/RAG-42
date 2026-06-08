@@ -1,0 +1,6 @@
+LICENSE
+.venv/
+__pycache__/
+.pytest_cache/
+.vscode/
+.mypy_cache/

@@ -1,0 +1,5 @@
+feed external data to have better answered 
+
+question iindexing(document) -> retrieval(relevant document) -> generation -(context windows) -> answer
+
+
