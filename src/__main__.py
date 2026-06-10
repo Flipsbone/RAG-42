@@ -1,8 +1,7 @@
 import fire
 import sys
 from pathlib import Path
-
-from src.indexing.indexation import Indexation
+from indexing.indexation import Indexation
 
 class RagCLI:
     """A Command Line Interface for managing the RAG document index."""
@@ -14,8 +13,8 @@ class RagCLI:
             target_dir: The folder path containing the raw documents.
             max_chunk_size: The maximum character limit for each text chunk.
         """
-        path_obj = Path(target_dir)
-        Indexation.load_file(data_dir=path_obj, max_chunk_size=max_chunk_size)
+        path = Path(target_dir)
+        Indexation.load_file(path, max_chunk_size)
 
 def main()-> int:
     try:

@@ -58,7 +58,14 @@ Read and process all files from the VLLM repository\
 **Traverse the Directory:** Write a function to recursively walk the extracted vLLM directory and collect the file paths.\
 **Read File Contents:** Open each file, read its contents, and store in a dict[Path, str] it along with its path.
 ### 2.2 Implement Intelligent Chunking Strategies
-**created model_indexation :** 
+**created model_indexation :** `PythonChunker` use AST (Abstract syntax Tree) python uses this module to read and understand code structure.
+#### 2.2.1 Convert the code string into a "Tree"
+#### 2.2.2 Walk through the main branches
+#### 2.2.3 Find the coordinates (Indices) of each node
+#### 2.2.4 Check the character length against your limit
+#### 2.2.5 Collect and Return
+
+
 **created model_indexation :** 
 ### 2.3 Indexing with BM25s
 ### 2.4 Wrap it in a CLI

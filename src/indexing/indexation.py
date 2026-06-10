@@ -1,4 +1,7 @@
+from tqdm import tqdm
 from pathlib import Path
+from indexing.chunking import ChunkerStrategy, PythonChunker, MarkdownChunker
+from indexing.model_indexation import MinimalSource
 
 class Indexation:
     @staticmethod
@@ -8,20 +11,18 @@ class Indexation:
         """
         if not data_dir.exists():
             raise FileNotFoundError(f"{data_dir}")
-        count_py: int = 0
-        count_md: int = 0
-        file_py: dict[Path, str] = {}
-        file_md: dict[Path, str] = {}
-        for file_path in data_dir.rglob("*"):
-                extension = file_path.suffix
-                match extension:
-                    case ".py":
-                        print(file_path)
-                        file_py[file_path] = file_path.read_text()
-                        count_py += 1
-                    case ".md":
-                        print(file_path)
-                        file_md[file_path] = file_path.read_text()
-                        count_md += 1
-                    case _:
-                        continue
+
+        chunkers: dict[str, ChunkerStrategy] = {
+            ".py": PythonChunker(),
+            ".md": MarkdownChunker()
+        }
+
+        all_processed_chunks: list[MinimalSource] = []
+        target_files = [path for path in data_dir.rglob("*") if path.suffix in chunkers]
+        for file_path in tqdm(target_files, desc="Ingesting and chunking repository"):
+            text_content = file_path.read_text(encoding="utf-8")
+            extension = file_path.suffix
+            strategy = chunkers[extension]
+            file_chunks = strategy.chunk(text_content, str(file_path), max_chunk_size)
+            all_processed_chunks.extend(file_chunks)
+        print(all_processed_chunks)
