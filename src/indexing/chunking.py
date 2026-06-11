@@ -1,6 +1,6 @@
 import ast
 from typing import Protocol
-from indexing.model_indexation import MinimalSource
+from src.indexing.model_indexation import MinimalSource
 
 class ChunkerStrategy(Protocol):
     def chunk(self, text: str, file_path: str, max_chunk_size: int) -> list[MinimalSource]:

@@ -1,7 +1,7 @@
 import fire
 import sys
 from pathlib import Path
-from indexing.indexation import Indexation
+from src.indexing.indexation import Indexation
 
 class RagCLI:
     """A Command Line Interface for managing the RAG document index."""

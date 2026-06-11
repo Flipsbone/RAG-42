@@ -1,7 +1,7 @@
 from tqdm import tqdm
 from pathlib import Path
-from indexing.chunking import ChunkerStrategy, PythonChunker, MarkdownChunker
-from indexing.model_indexation import MinimalSource
+from src.indexing.chunking import ChunkerStrategy, PythonChunker, MarkdownChunker
+from src.indexing.model_indexation import MinimalSource
 
 class Indexation:
     @staticmethod
