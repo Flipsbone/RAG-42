@@ -59,7 +59,7 @@ Read and process all files from the VLLM repository\
 **Read File Contents:** Open each file, read its contents, and store in a dict[Path, str] it along with its path.
 ### 2.2 Implement Intelligent Chunking Strategies
 **created model_indexation :** `PythonChunker` use AST (Abstract syntax Tree) python uses this module to read and understand code structure.
-#### 2.2.1 Convert the code string into a "Tree"
+#### 2.2.1 Convert the code string into an Abstract Syntax Tree (AST)
 #### 2.2.2 Walk through the main branches
 #### 2.2.3 Find the coordinates (Indices) of each node
 #### 2.2.4 Check the character length against your limit

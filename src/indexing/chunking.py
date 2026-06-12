@@ -16,18 +16,19 @@ class MarkdownChunker:
 class PythonChunker:
     def chunk(self, text: str, file_path: str, max_chunk_size: int) -> list[MinimalSource]:
         tree = ast.parse(text)
+        print(tree)
         previous_line = 0
         bloc_code: list[str] = []
         for node in tree.body:
             end_line = node.end_lineno
             code_node = ast.get_source_segment(text, node)
             size_node = len(code_node)
-            print(code_node)
-            print(size_node)
+            # print(f"{code_node}")
+            # print(f"size_node cest ici : ------- {size_node}")
         source = MinimalSource(
             file_path=file_path,
             first_character_index=0,
             last_character_index=len(text)
         )
         return [source]
-        
+    

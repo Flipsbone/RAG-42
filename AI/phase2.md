@@ -33,6 +33,35 @@ chunkers: dict[str, ChunkerStrategy] = {
 The AST Approach: Do not use simple character splitting for code. Use Python's built-in ast module to parse the code into logical blocks (classes, functions, and top-level statements).
 
 Fallback: If a single function or class exceeds the 2000-character limit, you will need a fallback strategy, perhaps using langchain's RecursiveCharacterTextSplitter specifically configured for Python syntax (e.g., splitting on \n\n, then \n, etc.).
+### 2.2.1 Convert the code string into an Abstract Syntax Tree (AST)
+
+    Action: Read the raw Python file as a string (retaining all original formatting) and pass it to ast.parse().
+
+    Why it matters: This builds a structural tree where code constructs (functions, classes, logic) are mapped out as distinct, hierarchical nodes without executing any code.
+
+### 2.2.2 Traverse the tree linearly using ast.NodeVisitor
+
+    Action: Implement a custom ast.NodeVisitor subclass to navigate the tree. Avoid ast.walk(), which scrambles the code order.
+
+    Why it matters: A NodeVisitor guarantees a strict, top-to-bottom, depth-first traversal. This ensures your chunks maintain the natural sequence of the source file.
+
+### 2.2.3 Map semantic block boundaries (Line Coordinates)
+
+    Action: During traversal, target high-level structural nodes (like FunctionDef and ClassDef) and log their precise code coordinates using node.lineno and node.end_lineno.
+
+    Why it matters: Because AST ignores standard comments (#), you cannot chunk the AST directly. Instead, you use the AST as a "boussole" (compass) to discover the exact line numbers where code blocks start and end.
+
+### 2.2.4 Linearly slice and aggregate up to the 2000-character limit
+
+    Action: Go back to your original raw code lines. Use the coordinates from the previous step to slice the text, which ensures all inline and structural comments are preserved. Linearly pile these slices into a single chunk, monitoring the string length.
+
+    Why it matters: If adding the next full function pushes the current chunk over 2000 characters, you seal the current chunk and push it to the queue. This prevents a function from being sliced in half mid-syntax.
+
+### 2.2.5 Finalize chunks and return for Embedding
+
+    Action: Capture any remaining trailing comments or code at the end of the file, append them to the last chunk, and return the final array of text strings.
+
+    Why it matters: Your RAG pipeline now receives clean, standalone code segments with full developer comments intact, maximizing the semantic accuracy of your downstream vector search.
 
 ***Markdown/Text Chunking (.md):***
 
