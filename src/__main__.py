@@ -2,7 +2,8 @@ import fire
 import sys
 from src.cli.command_line_interface import RagCLI
 
-def main()-> int:
+
+def main() -> int:
     try:
         fire.Fire(RagCLI)
     except PermissionError as e:
@@ -18,6 +19,7 @@ def main()-> int:
         print(f"Unexpected Error: {e}", file=sys.stderr)
         return 1
     return 0
+
 
 if __name__ == '__main__':
     main()

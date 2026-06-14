@@ -1,6 +1,7 @@
 from pathlib import Path
 from src.indexing.indexation import Indexation
 
+
 class RagCLI:
     """A Command Line Interface for managing the RAG document index."""
     def index(self, target_dir: str = "vllm-0.10.1", max_chunk_size: int = 2000)-> None:

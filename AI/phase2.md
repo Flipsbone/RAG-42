@@ -1,88 +1,79 @@
-The lack of a GPU is actually a massive advantage for the ingestion phase of this specific project. Because the specifications strictly mandate the use of either TF-IDF or BM25, you are building a sparse lexical index, not a dense semantic vector database.  Lexical indexing relies purely on statistical frequency and math, which means it is entirely CPU-bound. You will not need to load heavy embedding models into VRAM to process the documents.Here is the exact stack of modules you should use for Phase 2, aligning with both the mandatory project rules and your CPU-only environment:
+# Phase 2: Knowledge Base Ingestion System Roadmap
 
+## Overview & Constraints
+This phase focuses on parsing the vLLM repository, chunking the files, and creating a searchable index. Given the hardware constraints (CPU only) and strict performance requirements, this roadmap avoids heavy neural embeddings and leverages BM25 for fast, sparse vector indexing. 
 
-## Step 1: 
-File Discovery and LoadingThe first requirement is to "Read and process all files from the VLLM repository provide in the attachments". You need to distinguish between Python code and Markdown documentation.
-Define Target Extensions: You are primarily looking for .py and .md files.
+**Key Constraints:**
+* **Indexing Time:** Maximum 5 minutes.
+* **Chunk Size:** Maximum 2000 characters, configurable via CLI argument.
+* **Chunking Types:** Distinct strategies for Python code and Text/Markdown.
+* **Data Models:** Must use `pydantic` for `MinimalSource` tracking (`file_path`, `first_character_index`, `last_character_index`).
+* **Package Management:** The project must be managed using `uv`.
 
-Traverse the Directory: Write a function to recursively walk the extracted vLLM directory and collect the file paths.
+---
 
-Read File Contents: Open each file, read its contents, and store it along with its path.
+## Step 1: File Discovery and Loading
+The first requirement is to read and process all target files from the attached vLLM repository.
 
+* **Define Target Extensions:** Target primarily `.py` and `.md` files.
+* **Traverse the Directory:** Use `pathlib.Path.rglob` to recursively walk the extracted vLLM directory and collect the file paths.
+* **Read File Contents:** Open each file (using context managers), read its contents as a string, and store it along with its path.
 
-## Step 2: Implement Intelligent Chunking Strategies
+---
 
-The subject requires "different chunking strategies for the different types of files" (Python code and Text/Markdown). The maximum chunk size is 2000 characters and must be configurable via the CLI.
+## Step 2: Architecture & Data Models
+To keep the codebase clean, modular, and type-safe, separate your data structures from your chunking logic.
 
-Architecture: Data Models & Protocols
-To keep the codebase clean and modular, separate your data structures from your chunking logic:
+* **The Data Model (Pydantic):** Use Pydantic's `BaseModel` to define a `MinimalSource` object. This model must strictly track the `file_path`, `first_character_index`, and `last_character_index`. Using Pydantic makes validation and serialization to disk trivial.
+* **The Chunker Protocol:** Define a structural Protocol (e.g., `ChunkerStrategy`) enforcing a common interface. Every chunker must implement a `.chunk(text, file_path, max_chunk_size)` method that returns a list of your chunk objects.
+* **The Strategy Dictionary:** Centralize your strategies by mapping extensions to their respective implementations:
+    ```python
+    chunkers: dict[str, ChunkerStrategy] = {
+        ".py": PythonChunker(),
+        ".md": MarkdownChunker()
+    }
+    ```
 
-The Data Model (Pydantic): As you chunk, you must create metadata for each chunk. Use Pydantic's BaseModel to define a MinimalSource object. This model must track the file_path, first_character_index, last_character_index, and the extracted text itself. Using Pydantic makes serializing this data to disk later incredibly easy.  
+---
 
-The Chunker Protocol: Define a structural Protocol (e.g., ChunkerStrategy) that enforces a common interface for all file types. Every specific chunker class must implement a .chunk(text, file_path, max_chunk_size) method that returns a list of your MinimalSource objects.
+## Step 3: Intelligent Chunking Strategies
+You must implement different chunking strategies for different file types while strictly enforcing the configurable 2000-character maximum.
 
-The Strategy Dictionary: Centralize your strategies inside a dictionary mapping extensions to their respective implementations:
-```python
-chunkers: dict[str, ChunkerStrategy] = {
-".py": PythonChunker(),
-".md": MarkdownChunker()
-}
-```
-***Python Code Chunking (.py):***
+### 3.1 Python Code Chunking (`.py`)
+Do not use simple character splitting for code. Use Python's built-in `ast` module to parse the code into logical blocks.
 
-The AST Approach: Do not use simple character splitting for code. Use Python's built-in ast module to parse the code into logical blocks (classes, functions, and top-level statements).
+1.  **Generate the AST:** Read the raw Python file as a string (retaining all original formatting) and pass it to `ast.parse()`. This builds a structural tree mapped out as distinct nodes without executing code.
+2.  **Traverse with `ast.NodeVisitor`:** Implement a custom `ast.NodeVisitor` subclass to navigate the tree top-to-bottom. Avoid `ast.walk()`, which scrambles the code order.
+3.  **Map Semantic Boundaries:** During traversal, target high-level structural nodes (`FunctionDef`, `ClassDef`) and log their precise code coordinates using `node.lineno` and `node.end_lineno`. Since the AST ignores standard comments, use it as a compass to discover exact line numbers.
+4.  **Slice and Aggregate:** Go back to your original raw code lines. Use the coordinates to slice the text, ensuring inline and structural comments are preserved. Linearly pile these slices into a single chunk. If adding the next full block pushes the chunk over 2000 characters, seal the current chunk to prevent splitting syntax in half.
+5.  **Finalize Chunks:** Capture any remaining trailing comments at the end of the file, append them to the last chunk, and calculate the exact `first_character_index` and `last_character_index` for each final string. 
 
-Fallback: If a single function or class exceeds the 2000-character limit, you will need a fallback strategy, perhaps using langchain's RecursiveCharacterTextSplitter specifically configured for Python syntax (e.g., splitting on \n\n, then \n, etc.).
-### 2.2.1 Convert the code string into an Abstract Syntax Tree (AST)
+### 3.2 Markdown/Text Chunking (`.md`)
+* **Langchain Splitters:** Utilize Langchain's `RecursiveCharacterTextSplitter`. It is designed to respect Markdown structure (headers, paragraphs, lists) and keeps chunks semantically coherent.
+* **Configuration:** Set the `chunk_size` to your CLI parameter and define a reasonable overlap (e.g., 100-200 characters) to preserve context. Configure it to return string indices so you can accurately populate the Pydantic fields.
 
-    Action: Read the raw Python file as a string (retaining all original formatting) and pass it to ast.parse().
+---
 
-    Why it matters: This builds a structural tree where code constructs (functions, classes, logic) are mapped out as distinct, hierarchical nodes without executing any code.
+## Step 4: Indexing with BM25s
+You must create a searchable index within the 5-minute time limit. `bm25s` is highly optimized for CPU execution.
 
-### 2.2.2 Traverse the tree linearly using ast.NodeVisitor
+* **Prepare the Corpus:** Extract the raw text from all your validated chunk objects into a single list of strings.
+* **Custom Code Tokenization:** Standard tokenization often fails on code. Write a custom tokenization function that splits code-specific formats (CamelCase, snake_case) into individual words before passing them to the indexer to maximize retrieval accuracy.
+* **Build the Index:** Pass your tokenized corpus to the `bm25s` indexer to build the inverted sparse index.
 
-    Action: Implement a custom ast.NodeVisitor subclass to navigate the tree. Avoid ast.walk(), which scrambles the code order.
+---
 
-    Why it matters: A NodeVisitor guarantees a strict, top-to-bottom, depth-first traversal. This ensures your chunks maintain the natural sequence of the source file.
+## Step 5: Serialization and Storage
+To achieve a cold start latency of under 60 seconds, the system must load pre-computed assets rather than re-indexing.
 
-### 2.2.3 Map semantic block boundaries (Line Coordinates)
+* **Save the Index:** Use `bm25s` built-in methods to save the compiled index to disk (e.g., `data/processed/bm25_index`).
+* **Save the Metadata:** Serialize your list of Pydantic chunk objects to a JSON file (e.g., `data/processed/chunks`). When a query retrieves a BM25 document ID later, you will use this file to map the ID back to the specific `MinimalSource` metadata.
 
-    Action: During traversal, target high-level structural nodes (like FunctionDef and ClassDef) and log their precise code coordinates using node.lineno and node.end_lineno.
+---
 
-    Why it matters: Because AST ignores standard comments (#), you cannot chunk the AST directly. Instead, you use the AST as a "boussole" (compass) to discover the exact line numbers where code blocks start and end.
+## Step 6: Command-Line Interface Integration
+The pipeline must be accessible via a CLI using Python Fire.
 
-### 2.2.4 Linearly slice and aggregate up to the 2000-character limit
-
-    Action: Go back to your original raw code lines. Use the coordinates from the previous step to slice the text, which ensures all inline and structural comments are preserved. Linearly pile these slices into a single chunk, monitoring the string length.
-
-    Why it matters: If adding the next full function pushes the current chunk over 2000 characters, you seal the current chunk and push it to the queue. This prevents a function from being sliced in half mid-syntax.
-
-### 2.2.5 Finalize chunks and return for Embedding
-
-    Action: Capture any remaining trailing comments or code at the end of the file, append them to the last chunk, and return the final array of text strings.
-
-    Why it matters: Your RAG pipeline now receives clean, standalone code segments with full developer comments intact, maximizing the semantic accuracy of your downstream vector search.
-
-***Markdown/Text Chunking (.md):***
-
-Langchain Splitters: Utilize langchain's MarkdownTextSplitter or RecursiveCharacterTextSplitter. These are designed to respect Markdown structure (headers, paragraphs, lists) and will keep your chunks semantically coherent while strictly enforcing the configurable character limit.
-
-
-## Step 3: Indexing with BM25sYou must create a searchable index within a 5-minute time limit. bm25s is perfectly suited for this. 
-
-Prepare the Corpus: Extract the raw text from all your validated chunk objects into a single list of strings.Tokenization: bm25s requires tokenized input. You must define how to break your text into searchable terms.
-
-Crucial Step: As discussed earlier, standard tokenization might fail on code (e.g., CamelCase or snake_case). You should write a custom tokenization function that splits these code-specific formats into individual words before passing them to the BM25 indexer.
-
-Build the Index: Pass your tokenized corpus to the bm25s indexer to build the inverted index.
-Save to Disk: The requirement is to "Store the index for fast retrieval". bm25s provides built-in methods to save the index to disk. You also need to serialize and save your chunk metadata (the list of pydantic objects) so that when a retrieval occurs, you can map the BM25 document ID back to the specific file path and character indices.
-
-
-## Step 4: Wrap it in a CLI
-The final step is to make this process accessible via the command line.
-
-Python Fire: Use the fire library to expose your indexing function as a CLI command.
-
-Arguments: Ensure the command accepts the repository path and the --max_chunk_size argument.
-
-Progress Tracking: Wrap your file processing and chunking loops with tqdm to provide visual feedback during the ingestion process.  
+* **The Command:** Expose an `index` command that handles the full ingestion pipeline.
+* **Arguments:** Ensure it accepts `--max_chunk_size` (defaulting to 2000).
+* **Progress Tracking:** Wrap your file processing and chunking loops with `tqdm` to provide visual feedback for long-running operations.

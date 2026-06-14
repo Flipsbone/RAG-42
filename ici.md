@@ -1,6 +1,6 @@
 # RAG
 How RAG Works [Retrieval-Augmented Generation (RAG)] prevents AI models from guessing or hallucinating by forcing them to reference a dedicated external knowledge base.\
-It operates in four distinct phases:\
+It operates in four distinct phases:
 
 **Indexing:** Raw data is structured and organized to make it searchable.\
 **Retrieving:** The system interprets a user query, matches it against the indexed database, and pulls out the most relevant pieces of information.\
