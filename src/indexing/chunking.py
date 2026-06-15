@@ -1,4 +1,5 @@
 import ast
+from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from typing import Protocol
 from src.indexing.model_indexation import ChunkSource
 
@@ -20,9 +21,31 @@ class MarkdownChunker:
             text: str,
             file_path: str,
             max_chunk_size: int) -> list[ChunkSource]:
-        # Langchain logic goes here...
-        result: list[ChunkSource] = []
-        return result
+        
+        markdown_splitter = RecursiveCharacterTextSplitter.from_language(
+            language=Language.MARKDOWN,
+            chunk_size=max_chunk_size,
+            chunk_overlap=0,
+        )
+
+        langchain_chunks = markdown_splitter.create_documents([text])
+        
+        chunks: list[ChunkSource] = []
+        current_start_idx = 0
+        
+        for doc in langchain_chunks:
+            chunk_text = doc.page_content
+            chunks.append(
+                ChunkSource(
+                    file_path=file_path,
+                    first_character_index=current_start_idx,
+                    last_character_index=current_start_idx + len(chunk_text),
+                    text=chunk_text
+                )
+            )
+            current_start_idx += len(chunk_text)
+
+        return chunks
 
 
 class PythonChunker:
