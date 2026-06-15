@@ -1,6 +1,6 @@
 import ast
-from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from typing import Protocol
+from markdown_it import MarkdownIt
 from src.indexing.model_indexation import ChunkSource
 
 
@@ -15,123 +15,132 @@ class ChunkerStrategy(Protocol):
         ...
 
 
-class MarkdownChunker:
+class ChunkBuilder:
+    """Manages the global state and assembly of text chunks
+    while strictly respecting the maximum allowed size."""
+
+    def __init__(self, file_path: str, max_chunk_size: int):
+        self.file_path = file_path
+        self.max_chunk_size = max_chunk_size
+        self.chunks: list[ChunkSource] = []
+        self._current_chunk_text: str = ""
+        self._current_start_char_idx: int = 0
+
+    def seal_chunk(self) -> None:
+        """Seals the current chunk, saves its precise metadata,
+        and resets the accumulator."""
+        if not self._current_chunk_text:
+            return
+        self.chunks.append(
+            ChunkSource(
+                file_path=self.file_path,
+                first_character_index=self._current_start_char_idx,
+                last_character_index=(
+                    self._current_start_char_idx + len(
+                        self._current_chunk_text)),
+                text=self._current_chunk_text
+            )
+        )
+        self._current_start_char_idx += len(self._current_chunk_text)
+        self._current_chunk_text = ""
+
+    def process_lines(self, block_text: str, context_name: str) -> None:
+        """Processes a block line by line when
+        it natively exceeds the max size.
+        """
+        header = f"# [Continued: {context_name}]\n" if context_name else ""
+
+        for line in block_text.splitlines(keepends=True):
+            if len(line) + len(self._current_chunk_text) > (
+                    self.max_chunk_size and self._current_chunk_text):
+                self.seal_chunk()
+                self._current_chunk_text = header
+                header = ""
+
+            while len(line) > 0:
+                space_left = self.max_chunk_size - len(
+                    self._current_chunk_text)
+                self._current_chunk_text += line[:space_left]
+                line = line[space_left:]
+
+                if len(self._current_chunk_text) == self.max_chunk_size:
+                    self.seal_chunk()
+                    self._current_chunk_text = header
+                    header = ""
+
+    def process_segment(self, block_text: str, context_name: str) -> None:
+        """Evaluates and routes a text segment
+        to the accumulator or line processing.
+        """
+        if len(self._current_chunk_text) + len(block_text) < (
+                self.max_chunk_size):
+            self._current_chunk_text += block_text
+            return
+
+        self.seal_chunk()
+
+        if len(block_text) <= self.max_chunk_size:
+            self._current_chunk_text += block_text
+            return
+
+        self.process_lines(block_text, context_name)
+
+
+class PythonChunker:
+    """Parses Python files via AST and delegates assembly to the ChunkBuilder
+    """
+
     def chunk(
             self,
             text: str,
             file_path: str,
             max_chunk_size: int) -> list[ChunkSource]:
-        
-        markdown_splitter = RecursiveCharacterTextSplitter.from_language(
-            language=Language.MARKDOWN,
-            chunk_size=max_chunk_size,
-            chunk_overlap=0,
-        )
 
-        langchain_chunks = markdown_splitter.create_documents([text])
-        
-        chunks: list[ChunkSource] = []
-        current_start_idx = 0
-        
-        for doc in langchain_chunks:
-            chunk_text = doc.page_content
-            chunks.append(
-                ChunkSource(
-                    file_path=file_path,
-                    first_character_index=current_start_idx,
-                    last_character_index=current_start_idx + len(chunk_text),
-                    text=chunk_text
-                )
-            )
-            current_start_idx += len(chunk_text)
-
-        return chunks
-
-
-class PythonChunker:
-    def chunk(self,
-              text: str,
-              file_path: str,
-              max_chunk_size: int) -> list[ChunkSource]:
-
-        chunks: list[ChunkSource] = []
-        tree: ast.Module = ast.parse(text)
-
-        lines: list[str] = text.splitlines(keepends=True)
-
-        current_chunk_text: str = ""
-        current_start_char_idx: int = 0
-        last_line_idx: int = 0
-
-        def seal_chunk() -> None:
-            nonlocal current_chunk_text, current_start_char_idx
-            if not current_chunk_text:
-                return
-            chunks.append(
-                ChunkSource(
-                    file_path=file_path,
-                    first_character_index=current_start_char_idx,
-                    last_character_index=(
-                        current_start_char_idx + len(current_chunk_text)),
-                    text=current_chunk_text
-                )
-            )
-            current_start_char_idx += len(current_chunk_text)
-            current_chunk_text = ""
-
-        def process_trailing_code(final_line_idx: int) -> None:
-            remaining_text = "".join(lines[final_line_idx:])
-            if remaining_text:
-                process_segment(remaining_text, context_name="trailing code")
-            seal_chunk()
-
-        def process_lines(block_text: str, context_name: str) -> None:
-            nonlocal current_chunk_text
-            
-            header = f"# [Continued: {context_name}]\n" if context_name else ""
-
-            for line in block_text.splitlines(keepends=True):
-                if len(line) + len(current_chunk_text) > max_chunk_size and current_chunk_text:
-                    seal_chunk()
-                    current_chunk_text = header
-                    header = ""
-
-                while len(line) > 0:
-                    space_left = max_chunk_size - len(current_chunk_text)
-                    current_chunk_text += line[:space_left]
-                    line = line[space_left:]
-
-                    if len(current_chunk_text) == max_chunk_size:
-                        seal_chunk()
-                        current_chunk_text = header
-                        header = ""
-
-        def process_segment(block_text: str, context_name: str) -> None:
-            nonlocal current_chunk_text
-
-            if len(current_chunk_text) + len(block_text) < max_chunk_size:
-                current_chunk_text += block_text
-                return
-
-            seal_chunk()
-
-            if len(block_text) < max_chunk_size:
-                current_chunk_text += block_text
-                return
-
-            process_lines(block_text, context_name)
+        builder = ChunkBuilder(file_path, max_chunk_size)
+        tree = ast.parse(text)
+        lines = text.splitlines(keepends=True)
+        last_line_idx = 0
 
         for node in tree.body:
-            start_line_idx: int = last_line_idx
-            end_line_idx: int | None = node.end_lineno 
-            if end_line_idx is None:
-                end_line_idx = start_line_idx
-            block_lines: list[str] = lines[start_line_idx:end_line_idx]
-            block_text: str = "".join(block_lines)
-            node_name = getattr(node, "name", "module level")
-            process_segment(block_text, node_name)
+            start_line_idx = last_line_idx
+            end_line_idx: int | None = node.end_lineno or start_line_idx
+            block_text = "".join(lines[start_line_idx:end_line_idx])
+
+            match node:
+                case ast.FunctionDef(name=func_name) | (
+                        ast.AsyncFunctionDef(name=func_name)):
+                    context_name = f"Function: {func_name}"
+                case ast.ClassDef(name=class_name):
+                    context_name = f"Class: {class_name}"
+                case _:
+                    context_name = "Module level"
+
+            builder.process_segment(block_text, context_name)
             last_line_idx = end_line_idx
 
-        process_trailing_code(last_line_idx)
+        remaining_text = "".join(lines[last_line_idx:])
+        if remaining_text:
+            builder.process_segment(remaining_text, "Trailing code")
 
-        return chunks
+        builder.seal_chunk()
+        return builder.chunks
+
+
+class MarkdownChunker:
+    """Parses Markdown files via markdown-it-py
+        and delegates assembly to the ChunkBuilder.
+    """
+
+    def chunk(
+            self,
+            text: str,
+            file_path: str,
+            max_chunk_size: int) -> list[ChunkSource]:
+
+        builder = ChunkBuilder(file_path, max_chunk_size)
+        md = MarkdownIt()
+        tokens = md.parse(text)
+
+        lines = text.splitlines(keepends=True)
+        last_line_idx = 0
+        current_heading = "Document start"

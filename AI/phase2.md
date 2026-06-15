@@ -10,6 +10,7 @@ This phase focuses on parsing the vLLM repository, chunking the files, and creat
 * **Data Models:** Must use `pydantic` for `MinimalSource` tracking (`file_path`, `first_character_index`, `last_character_index`).
 * **Package Management:** The project must be managed using `uv`.
 * **Performance Opt-in:** Zero chunk overlap to minimize token usage and database size.
+* **Architecture Standard:** Python 3.10+ strictly utilizing Structural Pattern Matching and the Composition Pattern (DRY principle).
 
 ---
 
@@ -23,11 +24,12 @@ The first requirement is to read and process all target files from the attached 
 ---
 
 ## Step 2: Architecture & Data Models
-To keep the codebase clean, modular, and type-safe, separate your data structures from your chunking logic.
+To keep the codebase clean, modular, and type-safe, separate your data structures from your chunking logic using the **Composition Pattern**.
 
 * **The Data Model (Pydantic):** Use Pydantic's `BaseModel` to define a `MinimalSource` object. This model must strictly track the `file_path`, `first_character_index`, and `last_character_index`. Using Pydantic makes validation and serialization to disk trivial.
 * **The Chunker Protocol:** Define a structural Protocol (e.g., `ChunkerStrategy`) enforcing a common interface. Every chunker must implement a `.chunk(text, file_path, max_chunk_size)` method that returns a list of your chunk objects.
-* **The Strategy Dictionary:** Centralize your strategies by mapping extensions to their respective implementations:
+* **The ChunkBuilder (Composition):** Instead of duplicating text accumulation logic in every chunker, implement a standalone `ChunkBuilder` class. This builder manages the state (`_current_chunk_text`, `_current_start_char_idx`), handles strict length calculations, and safely applies continuation headers. 
+* **The Strategy Dictionary:** Centralize your strategies by mapping extensions to their respective router implementations:
     ```python
     chunkers: dict[str, ChunkerStrategy] = {
         ".py": PythonChunker(),
@@ -38,21 +40,27 @@ To keep the codebase clean, modular, and type-safe, separate your data structure
 ---
 
 ## Step 3: Intelligent Chunking Strategies
-You must implement different chunking strategies for different file types while strictly enforcing the configurable maximum size without losing any data. **Do not use chunk overlap** in any strategy, as it negatively impacts performance metrics.
+You must implement different chunking strategies acting as **Semantic Routers**. The chunkers analyze the file structure and delegate the text assembly to the `ChunkBuilder`. **Do not use chunk overlap**.
 
 ### 3.1 Python Code Chunking (`.py`)
-Do not use simple character splitting for code. Use Python's built-in `ast` module to parse the code into logical blocks and route them efficiently.
+Do not use simple character splitting for code. Use Python's built-in `ast` module combined with **Structural Pattern Matching** (Python 3.10+).
 
-1.  **Generate the AST:** Read the raw Python file as a string (retaining all original formatting) and pass it to `ast.parse()`. This builds a structural tree mapped out as distinct nodes without executing code.
-2.  **Segment Routing (`process_segment`):** Extract text blocks using the AST line numbers. Pass these blocks to a router that evaluates size limits (`<= max_chunk_size`). If a block fits, append it. If not, seal the current chunk and evaluate again.
-3.  **Line-by-Line Fallback (`process_lines`):** If a single AST node is larger than the maximum chunk size, delegate it to a specialized function that processes the block line-by-line (`splitlines(keepends=True)`) to preserve semantic meaning where possible.
-4.  **Hard Splitting without Truncation:** If a single line of code (e.g., a massive base64 string or long comment) exceeds the limit natively, use a `while` loop to enforce a hard split exactly at the character limit. Do not truncate or discard any remaining text.
-5.  **Contextual Continuation Headers:** Because overlap is disabled, maintain semantic continuity by injecting a header (e.g., `# [Continued: function_name]\n`) at the start of any new chunk that inherits an over-limit block.
-6.  **Finalize Code (`process_trailing_code`):** Process any remaining text or trailing comments left after AST traversal, seal the final chunk, and ensure absolute precision for `first_character_index` and `last_character_index`.
+1.  **Generate the AST:** Read the raw Python file as a string (retaining all original formatting) and pass it to `ast.parse()`. 
+2.  **Pattern Matching Routing:** Iterate through `tree.body` and use `match node:` to intelligently identify structural blocks:
+    * `case ast.FunctionDef(name=func_name) | ast.AsyncFunctionDef(...)`: Extract function names.
+    * `case ast.ClassDef(name=class_name)`: Extract class names.
+    * `case _`: Fallback to module-level scope.
+3.  **Delegated Assembly (`process_segment`):** Pass the raw text block and the extracted context name to the `ChunkBuilder`. The builder handles the math (size limits `<= max_chunk_size`).
+4.  **Line-by-Line Fallback & Hard Splitting:** If a single AST node is larger than the maximum chunk size, the `ChunkBuilder` processes the block line-by-line (`splitlines(keepends=True)`), employing a `while` loop to enforce a hard split without truncation if a single line exceeds the limit natively.
+5.  **Contextual Continuation Headers:** The `ChunkBuilder` automatically injects headers (e.g., `# [Continued: Function: func_name]
+`) when a semantic block spans multiple chunks.
+6.  **Finalize Code:** Pass trailing text to the builder and execute `seal_chunk()` to finalize exact `first_character_index` and `last_character_index` mappings.
 
 ### 3.2 Markdown/Text Chunking (`.md`)
-* **Langchain Splitters:** Utilize Langchain's `RecursiveCharacterTextSplitter`. It is designed to respect Markdown structure (headers, paragraphs, lists) and keeps chunks semantically coherent.
-* **Configuration:** Set the `chunk_size` to your CLI parameter. To align with the strict performance requirements established in the Python chunker, set `chunk_overlap=0`. Configure it to return string indices so you can accurately populate the Pydantic fields.
+* **AST Parsing with `markdown-it-py`:** Generate an Abstract Syntax Tree (AST) using `markdown-it-py`. This provides a strict list of tokens, preventing context errors.
+* **Semantic Routing via Pattern Matching:** Iterate through the token stream and use `match token.type:` to capture structural headings (e.g., updating the context when encountering `heading_open` followed by an `inline` token).
+* **Gap and Block Capture:** Leverage the token's `.map` attribute to calculate line intervals. Capture both mapped blocks and unmapped gaps (like spacing or separators), and delegate them to the `ChunkBuilder`.
+* **Unified Logic:** By using the same `ChunkBuilder` as the Python chunker, the Markdown chunker guarantees the same strict zero-overlap compliance and absolute character index accuracy with zero duplicated logic.
 
 ---
 
