@@ -34,59 +34,81 @@ class PythonChunker:
         chunks: list[ChunkSource] = []
         tree: ast.Module = ast.parse(text)
 
-        lines: str = text.splitlines(keepends=True)
+        lines: list[str] = text.splitlines(keepends=True)
+
         current_chunk_text: str = ""
         current_start_char_idx: int = 0
-        last_processed_line: int = 0
+        last_line_idx: int = 0
 
-        def seal_chunk():
+        def seal_chunk() -> None:
             nonlocal current_chunk_text, current_start_char_idx
-            if current_chunk_text:
-                chunks.append(
-                    ChunkSource(
-                        file_path=file_path,
-                        first_character_index=current_start_char_idx,
-                        last_character_index=(
-                            current_start_char_idx + len(current_chunk_text)),
-                        text=current_chunk_text
-                    )
-                )
-                current_start_char_idx += len(current_chunk_text)
-                current_chunk_text = ""
-
-        def process_segment(segment_text: str):
-            nonlocal current_chunk_text
-            if len(current_chunk_text) + len(segment_text) <= max_chunk_size:
-                current_chunk_text += segment_text
+            if not current_chunk_text:
                 return
+            chunks.append(
+                ChunkSource(
+                    file_path=file_path,
+                    first_character_index=current_start_char_idx,
+                    last_character_index=(
+                        current_start_char_idx + len(current_chunk_text)),
+                    text=current_chunk_text
+                )
+            )
+            current_start_char_idx += len(current_chunk_text)
+            current_chunk_text = ""
+
+        def process_trailing_code(final_line_idx: int) -> None:
+            remaining_text = "".join(lines[final_line_idx:])
+            if remaining_text:
+                process_segment(remaining_text, context_name="trailing code")
             seal_chunk()
-            if len(segment_text) <= max_chunk_size:
-                current_chunk_text = segment_text
-            else:
-                for line in segment_text.splitlines(keepends=True):
-                    if len(current_chunk_text) + len(line) <= max_chunk_size:
-                        current_chunk_text += line
-                    else:
+
+        def process_lines(block_text: str, context_name: str) -> None:
+            nonlocal current_chunk_text
+            
+            header = f"# [Continued: {context_name}]\n" if context_name else ""
+
+            for line in block_text.splitlines(keepends=True):
+                if len(line) + len(current_chunk_text) > max_chunk_size and current_chunk_text:
+                    seal_chunk()
+                    current_chunk_text = header
+                    header = ""
+
+                while len(line) > 0:
+                    space_left = max_chunk_size - len(current_chunk_text)
+                    current_chunk_text += line[:space_left]
+                    line = line[space_left:]
+
+                    if len(current_chunk_text) == max_chunk_size:
                         seal_chunk()
-                        if len(line) > max_chunk_size:
-                            for i in range(0, len(line), max_chunk_size):
-                                current_chunk_text = line[i:i+max_chunk_size]
-                                seal_chunk()
-                        else:
-                            current_chunk_text = line
+                        current_chunk_text = header
+                        header = ""
+
+        def process_segment(block_text: str, context_name: str) -> None:
+            nonlocal current_chunk_text
+
+            if len(current_chunk_text) + len(block_text) < max_chunk_size:
+                current_chunk_text += block_text
+                return
+
+            seal_chunk()
+
+            if len(block_text) < max_chunk_size:
+                current_chunk_text += block_text
+                return
+
+            process_lines(block_text, context_name)
 
         for node in tree.body:
-            start_line_idx: int = last_processed_line
-            end_line_idx: int | None = node.end_lineno
+            start_line_idx: int = last_line_idx
+            end_line_idx: int | None = node.end_lineno 
             if end_line_idx is None:
                 end_line_idx = start_line_idx
-            block_lines: str = lines[start_line_idx:end_line_idx]
+            block_lines: list[str] = lines[start_line_idx:end_line_idx]
             block_text: str = "".join(block_lines)
-            process_segment(block_text)
-            last_processed_line = end_line_idx
+            node_name = getattr(node, "name", "module level")
+            process_segment(block_text, node_name)
+            last_line_idx = end_line_idx
 
-        remaining_text = "".join(lines[last_processed_line:])
-        if remaining_text:
-            process_segment(remaining_text)
-        seal_chunk()
+        process_trailing_code(last_line_idx)
+
         return chunks

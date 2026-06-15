@@ -69,3 +69,39 @@ Read and process all files from the VLLM repository\
 **created model_indexation :** 
 ### 2.3 Indexing with BM25s
 ### 2.4 Wrap it in a CLI
+
+
+
+
+LANGCHAINE: 
+from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
+from typing import Protocol
+from src.indexing.model_indexation import ChunkSource
+
+class PythonChunker:
+    def chunk(self, text: str, file_path: str, max_chunk_size: int) -> list[ChunkSource]:
+        # Tell LangChain this is Python code
+        python_splitter = RecursiveCharacterTextSplitter.from_language(
+            language=Language.PYTHON,
+            chunk_size=max_chunk_size,
+            chunk_overlap=0 # Adjust if you want overlap
+        )
+
+        langchain_chunks = python_splitter.create_documents([text])
+        
+        chunks: list[ChunkSource] = []
+        current_start_idx = 0
+        
+        for doc in langchain_chunks:
+            chunk_text = doc.page_content
+            chunks.append(
+                ChunkSource(
+                    file_path=file_path,
+                    first_character_index=current_start_idx,
+                    last_character_index=current_start_idx + len(chunk_text),
+                    text=chunk_text
+                )
+            )
+            current_start_idx += len(chunk_text)
+
+        return chunks
