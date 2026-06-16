@@ -8,4 +8,5 @@ class MinimalSource(BaseModel):
 
 
 class ChunkSource(MinimalSource):
+    context_name: str
     text: str
