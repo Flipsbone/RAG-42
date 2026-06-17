@@ -1,15 +1,16 @@
 import bm25s
 import re
 import Stemmer
-from model.model_indexing import ChunkSource
+from src.model.model_indexing import ChunkSource
 
-class Retriver:
+
+class Retriever:
     def __init__(self, chunks: list[ChunkSource]):
         self.chunks: list[ChunkSource] = chunks
         self._stemmer = Stemmer.Stemmer("english")
         self.retriever = bm25s.BM25()
 
-    def save_index(self)-> None:
+    def save_index(self) -> None:
         self.retriever.save("./data/processed/bm25_index")
 
     def _format_text(self, text: str) -> str:
@@ -19,7 +20,8 @@ class Retriver:
 
     def build_index(self) -> None:
         expanded_corpus: list[str] = (
-            [self._format_text(chunk.context_name + chunk.text) for chunk in self.chunks])
+            [self._format_text(
+                chunk.context_name + chunk.text) for chunk in self.chunks])
 
         corpus_tokens = bm25s.tokenize(
             texts=expanded_corpus,

@@ -22,8 +22,9 @@ class Indexation:
         if not self.data_dir.exists():
             raise FileNotFoundError(f"{self.data_dir}")
 
-        self.target_files: list[str] = [
-            path for path in self.data_dir.rglob("*") if path.suffix in self.chunkers]
+        self.target_files: list[Path] = [
+            path for path in self.data_dir.rglob("*")
+            if path.suffix in self.chunkers]
 
     def processed_chunks(self) -> list[ChunkSource]:
 
@@ -39,4 +40,4 @@ class Indexation:
                 text_content, str(file_path), self.max_chunk_size)
             all_processed_chunks.extend(file_chunks)
 
-        return(all_processed_chunks)
+        return all_processed_chunks

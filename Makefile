@@ -39,5 +39,6 @@ clean:
 	       .pytest_cache \
 
 	find . -type d -name "__pycache__" -exec rm -rf {} +
+	rm -rf data
 
 .PHONY: all install run debug lint lint-strict clean profile
