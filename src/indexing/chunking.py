@@ -1,7 +1,7 @@
 import ast
 from typing import Protocol
 from markdown_it import MarkdownIt
-from src.indexing.model_indexation import ChunkSource
+from src.model.model_indexing import ChunkSource
 
 
 class ChunkerStrategy(Protocol):
@@ -67,8 +67,8 @@ class ChunkBuilder:
 
                 if len(self._current_chunk_text) == self.max_chunk_size:
                     self.seal_chunk()
-                    self._current_chunk_text = header
-                    header = ""
+                    # self._current_chunk_text = header
+                    # header = ""
 
     def process_segment(self, block_text: str, context_name: str) -> None:
         """Evaluates and routes a text segment

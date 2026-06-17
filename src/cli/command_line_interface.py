@@ -1,5 +1,6 @@
 from pathlib import Path
 from src.indexing.indexation import Indexation
+from src.retrieval.retriver import Retriver
 
 
 class RagCLI:
@@ -13,4 +14,8 @@ class RagCLI:
             max_chunk_size: The maximum character limit for each text chunk.
         """
         path = Path(target_dir)
-        Indexation.load_file(path, max_chunk_size)
+        indexer = Indexation(path, max_chunk_size)
+        chunks = indexer.processed_chunks()
+        retriver = Retriver(chunks)
+        retriver.build_index()
+        retriver.save(save_dir)
