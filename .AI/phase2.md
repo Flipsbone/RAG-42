@@ -89,6 +89,6 @@ Achieve a cold start latency of under 60 seconds by saving pre-computed assets.
 ## Step 6: Command-Line Interface Integration
 The pipeline is accessible via a custom CLI structure (`RagCLI`).
 
-* **The Command:** Expose an `index()` method that orchestrates the `Indexation` and `Retriver` classes.
+* **The Command:** Expose an `index()` method that orchestrates the `Indexation` and `Retriever` classes.
 * **Arguments:** Accept configurations like `target_dir` (default: `"vllm-0.10.1"`) and `max_chunk_size` (default: `2000`).
 * **Progress Tracking:** Utilize `tqdm` within the ingestion loop to provide clear visual loading bars while the repository is being read and chunked.
