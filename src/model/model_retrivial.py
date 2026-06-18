@@ -1,5 +1,4 @@
-import uuid
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from src.model.model_indexing import MinimalSource
 
 

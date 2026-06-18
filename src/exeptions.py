@@ -4,7 +4,8 @@ class IndexationError(Exception):
     """
     def __init__(self, failed_logs: list[dict]):
         self.failed_logs = failed_logs
-        super().__init__(f"{len(failed_logs)} file(s) failed during indexation.")
+        super().__init__(f"{len(failed_logs)} files failed during indexation.")
+
 
 class RetrieverError(Exception):
     """

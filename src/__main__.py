@@ -3,14 +3,17 @@ import sys
 from src.cli.command_line_interface import RagCLI
 import src.exeptions as error
 
+
 def main() -> int:
     try:
         fire.Fire(RagCLI)
-    except error.IndexationError as e :
+    except error.IndexationError as e:
         for log in e.failed_logs:
-            print(f"Indexation Error: Ignored {log['file']}: {log['error']}", file=sys.stderr)
+            print(
+                f"Indexation Error: Ignored {log['file']}: "
+                f"{log['error']}", file=sys.stderr)
         sys.exit(1)
-    except error.RetrieverError as e : 
+    except error.RetrieverError as e:
         print(f"Retriever Error: {e}", file=sys.stderr)
         sys.exit(1)
     except PermissionError as e:

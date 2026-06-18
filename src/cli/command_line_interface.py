@@ -19,7 +19,6 @@ class RagCLI:
         indexer = Indexation(path, max_chunk_size)
         indexer.processed_chunks()
 
-
     def search(self, query: str = "", k: int = 5) -> None:
         """
         Search the database to retrieve the most useful snippets.
@@ -31,4 +30,5 @@ class RagCLI:
         """
         retriever = Retriever()
         retriever.load_index()
-        retriever.search(query,k)
+        result = retriever.search(query, k)
+        print(result)
