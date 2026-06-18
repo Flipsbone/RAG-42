@@ -17,10 +17,8 @@ class RagCLI:
         """
         path = Path(target_dir)
         indexer = Indexation(path, max_chunk_size)
-        chunks = indexer.processed_chunks()
-        retriver = Retriever(chunks)
-        retriver.build_index()
-        retriver.save_index()
+        indexer.processed_chunks()
+
 
     def search(self, query: str, k: int = 5) -> None:
         """
@@ -31,4 +29,6 @@ class RagCLI:
             query: What you want to know.
             k: The maximum result of the most relevant pieces of information.
         """
-        
+        retriever = Retriever()
+        index = retriever.load_index()
+        print(index)

@@ -6,6 +6,10 @@ import src.exeptions as error
 def main() -> int:
     try:
         fire.Fire(RagCLI)
+    except error.IndexationError as e :
+        for log in e.failed_logs:
+            print(f"Ignored {log['file']}: {log['error']}", file=sys.stderr)
+        sys.exit(1)
     except error.RetrieverError as e : 
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)

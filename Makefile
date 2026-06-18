@@ -1,7 +1,8 @@
 PYTHON = uv run python3
 MAIN = -m src
 SRC = src/
-ARGS = index --max_chunk_size=2000 --target_dir=test-file
+INDEX = index --max_chunk_size=2000 --target_dir=test-file
+SEARCH = uv run python3 -m src search --query=What's the default value of trust_remote_code in vLLM's LLM class constructor? --k=1
 
 all: install
 
@@ -14,8 +15,13 @@ install: uv.lock
 	uv sync
 
 run: install
-	@echo "Running the program with args: $(ARGS)..."
-	$(PYTHON) $(MAIN) $(ARGS)
+	@echo "Running the program with args: $(INDEX)..."
+	$(PYTHON) $(MAIN) $(INDEX)
+
+search: install
+	@echo "Running the program with args: $(SEARCH)..."
+	$(PYTHON) $(MAIN) $(SEARCH)
+
 debug: install
 	@echo "Starting debug mode..."
 	$(PYTHON) -m pdb $(MAIN)

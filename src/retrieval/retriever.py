@@ -1,4 +1,5 @@
 import bm25s
+from bm25s import BM25
 import re
 import Stemmer
 from src.exeptions import RetrieverError
@@ -7,17 +8,17 @@ from src.model.model_indexing import ChunkSource
 
 
 class Retriever:
-    def __init__(self, chunks: list[ChunkSource]):
-        self.chunks: list[ChunkSource] = chunks
+    def __init__(self) -> None:
         self._stemmer = Stemmer.Stemmer("english")
         self.retriever = bm25s.BM25()
 
     def save_index(self) -> None:
         self.retriever.save("./data/processed/bm25_index")
 
-    def load_index(self) -> None:
+    def load_index(self) -> BM25:
         try:
             self.retriever = bm25s.BM25.load("./data/processed/bm25_index")
+            return self.retriever
         except RetrieverError as e:
             error = ("the file index not found. Have you made before :"
             "uv run python3 -m src index --max_chunk_size=2000 --target_dir=<your_file>")
@@ -39,9 +40,9 @@ class Retriever:
         )
         return text_data
 
-    def build_index(self) -> None:
+    def build_index(self, chunks: list[ChunkSource]) -> None:
         expanded_corpus: list[str] = (
             [self._format_text(
-                chunk.context_name + chunk.text) for chunk in self.chunks])
+                chunk.context_name + chunk.text) for chunk in chunks])
         tokens_corpus = self._tokenizing(expanded_corpus)
         self.retriever.index(tokens_corpus)
