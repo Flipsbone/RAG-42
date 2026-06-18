@@ -82,7 +82,7 @@ Create a searchable index within the time limit using `bm25s` via the `Retriver`
 Achieve a cold start latency of under 60 seconds by saving pre-computed assets.
 
 * **Save the Compiled Index:** Use the `retriever.save("./data/processed/bm25_index")` method to dump the fully structured search index and vocabulary to disk. The use of `return_ids=True` guarantees the index remains compressed and fast to load.
-* *(Future capability)*: Consider serializing the raw `ChunkSource` Pydantic models to JSON to easily map retrieved BM25 IDs back to their full metadata and original text during the generation phase.
+* **Serialize Chunks to JSON:** You must save your generated `ChunkSource` objects to disk so they can be mapped back to BM25 results during the retrieval phase. Use Pydantic's built-in serialization (e.g., `TypeAdapter(List[ChunkSource]).dump_json()` or iterating through the list and dumping dictionaries) to export the list of chunks and save them to a file at `./data/processed/chunks/chunk_mapping.json`.
 
 ---
 

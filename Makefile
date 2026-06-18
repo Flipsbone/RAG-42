@@ -1,8 +1,8 @@
 PYTHON = uv run python3
 MAIN = -m src
 SRC = src/
-INDEX = index --max_chunk_size=2000 --target_dir=test-file
-SEARCH = uv run python3 -m src search --query=What's the default value of trust_remote_code in vLLM's LLM class constructor? --k=1
+INDEX = index --max_chunk_size=2000 --target_dir=vllm-0.10.1
+SEARCH = search --query="What are the default values for FP8_MIN and FP8_MAX constants in vLLM's triton_flash_attention module?" --k=1
 
 all: install
 
@@ -19,7 +19,7 @@ run: install
 	$(PYTHON) $(MAIN) $(INDEX)
 
 search: install
-	@echo "Running the program with args: $(SEARCH)..."
+	@echo "Running the program with function search..."
 	$(PYTHON) $(MAIN) $(SEARCH)
 
 debug: install

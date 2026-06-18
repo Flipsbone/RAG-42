@@ -8,16 +8,16 @@ def main() -> int:
         fire.Fire(RagCLI)
     except error.IndexationError as e :
         for log in e.failed_logs:
-            print(f"Ignored {log['file']}: {log['error']}", file=sys.stderr)
+            print(f"Indexation Error: Ignored {log['file']}: {log['error']}", file=sys.stderr)
         sys.exit(1)
     except error.RetrieverError as e : 
-        print(f"Error: {e}", file=sys.stderr)
+        print(f"Retriever Error: {e}", file=sys.stderr)
         sys.exit(1)
     except PermissionError as e:
         print(f"Permission Error: {e}", file=sys.stderr)
         sys.exit(1)
     except FileNotFoundError as e:
-        print(f"Error: File '{e}' not found.", file=sys.stderr)
+        print(f"File not found Error: File '{e}' not found.", file=sys.stderr)
         sys.exit(1)
     except ValueError as e:
         print(f"Validation Error: {e}", file=sys.stderr)

@@ -25,10 +25,10 @@ Ensure your data structures strictly follow the specifications to guarantee vali
 ## Step 2: Single Query Retrieval Logic (`search`)
 Implement the core logic to query the BM25 index loaded from Phase 2.
 
-* **Index Loading:** Implement a fast-loading mechanism in your `Retriever` class to load the pre-computed BM25 index from `./data/processed/bm25_index`.
+* [cite_start]**Index & Chunk Loading:** Implement a fast-loading mechanism in your `Retriever` class to load the pre-computed BM25 index from `./data/processed/bm25_index` and your serialized chunk mapping (e.g., `chunk_mapping.json`) from `./data/processed/chunks/`.
 * **Query Tokenization:** Convert the incoming user query into tokens. **Crucial:** You must use the exact same tokenizer configurations (lowercasing, stemmer, stop words) used during the indexing phase.
 * **BM25 Search Execution:** Pass the tokenized query to the loaded BM25 model to retrieve the top-$k$ document IDs and their scores.
-* **Metadata Mapping:** * Map the returned BM25 IDs back to your original `ChunkSource` objects (saved during Phase 2).
+* **Metadata Mapping:** * Map the returned BM25 IDs back to your original `ChunkSource` objects using the JSON dictionary you loaded into memory.
   * Extract the `file_path`, `first_character_index`, and `last_character_index` to build `MinimalSource` objects for the retrieved chunks.
 
 ---
@@ -41,7 +41,7 @@ The system must be capable of processing multiple questions efficiently for eval
   * Iterate through the list of questions.
   * For each question, execute the Single Query Retrieval logic.
   * Collect the mapped `MinimalSource` results and package them into a `MinimalSearchResults` object.
-* **Performance Optimization:** Use `tqdm` to display a progress bar. Ensure your BM25 index is loaded only **once** into memory before starting the loop to respect the 90-second throughput limit.
+* **Performance Optimization:** Use `tqdm` to display a progress bar. Ensure your BM25 index and chunk JSON mapping are loaded only **once** into memory before starting the loop to respect the 90-second throughput limit.
 * **JSON Serialization:** Aggregate all results into a `StudentSearchResults` object and dump it to a properly formatted JSON file in the specified output directory.
 
 ---
