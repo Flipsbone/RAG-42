@@ -21,3 +21,14 @@ class RagCLI:
         retriver = Retriever(chunks)
         retriver.build_index()
         retriver.save_index()
+
+    def search(self, query: str, k: int = 5) -> None:
+        """
+        Search the database to retrieve the most useful snippets.
+        With exactly one query.
+
+        Args:
+            query: What you want to know.
+            k: The maximum result of the most relevant pieces of information.
+        """
+        
