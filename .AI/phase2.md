@@ -18,8 +18,8 @@ This phase focuses on parsing the vLLM repository, chunking the files, and creat
 The first requirement is to read and process all target files from the attached vLLM repository.
 
 * **Define Target Extensions:** Target primarily `.py` and `.md` files.
-* **Traverse the Directory:** Use `pathlib.Path.rglob` in the `Indexation` class to recursively walk the extracted directory and collect valid file paths.
-* **Read File Contents:** Open each file, read its contents as a string (`utf-8`), and delegate processing to the appropriate strategy.
+* **Traverse the Directory:** Use `pathlib.Path.rglob("*")` in the `Indexation._discover_files` method to recursively walk the directory and collect valid file paths based on the `chunkers` dictionary.
+* **Read File Contents:** Open each file, read its contents as a string (`utf-8`), and delegate processing to the appropriate strategy via `processed_chunks()`. Track any unhandled exceptions to raise a final `IndexationError`.
 
 ---
 
@@ -47,14 +47,10 @@ Implement different chunking strategies acting as **Semantic Routers**. The chun
 Use Python's built-in `ast` module combined with **Structural Pattern Matching**.
 
 1.  **Generate the AST:** Pass the raw text string to `ast.parse()`.
-2.  **Pattern Matching Routing:** Iterate through `tree.body` and use `match node:` to intelligently identify structural blocks:
-    * `case ast.FunctionDef(name=func_name) | ast.AsyncFunctionDef(...)`: Set `context_name` to "Function: [name]".
-    * `case ast.ClassDef(name=class_name)`: Set `context_name` to "Class: [name]".
-    * `case _`: Fallback to "Module level".
-3.  **Delegated Assembly (`process_segment`):** Pass the raw text block and the extracted context name to the `ChunkBuilder`. 
-4.  **Line-by-Line Fallback & Hard Splitting:** If a block is larger than the maximum chunk size, the `ChunkBuilder` processes the block line-by-line natively without truncation.
-5.  **Metadata Injection over Hardcoding:** Instead of injecting textual headers into the code chunks, the builder directly saves the current structural location to the `context_name` attribute of the `ChunkSource` object.
-6.  **Finalize Code:** Pass trailing text to the builder and execute `seal_chunk()`.
+2.  **Pattern Matching Routing:** Iterate through the tree and use `match node:` to intelligently identify structural blocks (`ast.FunctionDef`, `ast.ClassDef`) and set the `context_name` appropriately.
+3.  **Delegated Assembly:** Pass the raw text block and the extracted context name to the `ChunkBuilder`. 
+4.  **Metadata Injection:** Instead of injecting textual headers into the code chunks, the builder directly saves the current structural location to the `context_name` attribute of the `ChunkSource` object.
+
 
 ### 3.2 Markdown/Text Chunking (`.md`)
 * **AST Parsing with `markdown-it-py`:** Generate an Abstract Syntax Tree to provide a strict list of tokens.

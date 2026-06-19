@@ -12,3 +12,9 @@ class RetrieverError(Exception):
     All errors specific append inside the retriever.
     """
     pass
+
+class DatasetError(RetrieverError):
+    """
+    All errors specific append inside dataset_handler.
+    """
+    pass

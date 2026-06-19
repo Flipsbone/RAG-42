@@ -15,17 +15,18 @@ This phase bridges the gap between the ingested knowledge base (BM25 index) and 
 ## Step 1: Data Models & Validation Setup
 Ensure your data structures strictly follow the specifications to guarantee validation throughout the pipeline.
 
-* **Pydantic Models:** * Ensure `MinimalSource` is imported and used exactly as defined.
-  * Implement `MinimalSearchResults`: Must contain `question_id` (str), `question` (str), and `retrieved_sources` (List[MinimalSource]).
-  * Implement `StudentSearchResults`: Must contain `search_results` (List[MinimalSearchResults]) and `k` (int).
-* **Validation Layer:** Use these models to parse incoming JSON datasets (like `dataset_docs_public.json`) and to serialize your final outputs.
+* **Pydantic Models:** * `MinimalSource`: Strictly tracks location data.
+  * `UnansweredQuestion`: Validates incoming query structure (UUID and string).
+  * `MinimalSearchResults`: Contains `question_id`, `question`, and `retrieved_sources`.
+  * `StudentSearchResults`: Aggregates a list of `MinimalSearchResults` and tracks the `k` parameter.
+* **Validation Layer:** Use these models via `TypeAdapter` or `.model_validate_json()` to parse incoming datasets and serialize outputs.
 
 ---
 
 ## Step 2: Single Query Retrieval Logic (`search`)
 Implement the core logic to query the BM25 index loaded from Phase 2.
 
-* [cite_start]**Index & Chunk Loading:** Implement a fast-loading mechanism in your `Retriever` class to load the pre-computed BM25 index from `./data/processed/bm25_index` and your serialized chunk mapping (e.g., `chunk_mapping.json`) from `./data/processed/chunks/`.
+* **Index & Chunk Loading:** Implement a fast-loading mechanism in your `Retriever` class to load the pre-computed BM25 index from `./data/processed/bm25_index` and your serialized chunk mapping (e.g., `chunk_mapping.json`) from `./data/processed/chunks/`.
 * **Query Tokenization:** Convert the incoming user query into tokens. **Crucial:** You must use the exact same tokenizer configurations (lowercasing, stemmer, stop words) used during the indexing phase.
 * **BM25 Search Execution:** Pass the tokenized query to the loaded BM25 model to retrieve the top-$k$ document IDs and their scores.
 * **Metadata Mapping:** * Map the returned BM25 IDs back to your original `ChunkSource` objects using the JSON dictionary you loaded into memory.
@@ -34,29 +35,28 @@ Implement the core logic to query the BM25 index loaded from Phase 2.
 ---
 
 ## Step 3: Batch Processing (`search_dataset`)
-The system must be capable of processing multiple questions efficiently for evaluation.
+All retrieval operations funnel through a single, highly optimized batch search method to respect the 90-second throughput limit
 
-* **Dataset Ingestion:** Read the input JSON file (e.g., `./data/datasets/UnansweredQuestions/dataset_docs_public.json`). Parse the file into your predefined dataset Pydantic model (e.g., a list of `UnansweredQuestion` objects).
-* **Batch Execution Loop:**
-  * Iterate through the list of questions.
-  * For each question, execute the Single Query Retrieval logic.
-  * Collect the mapped `MinimalSource` results and package them into a `MinimalSearchResults` object.
-* **Performance Optimization:** Use `tqdm` to display a progress bar. Ensure your BM25 index and chunk JSON mapping are loaded only **once** into memory before starting the loop to respect the 90-second throughput limit.
-* **JSON Serialization:** Aggregate all results into a `StudentSearchResults` object and dump it to a properly formatted JSON file in the specified output directory.
+* **Signature:** `bulk_search(self, queries: list[UnansweredQuestion], k: int) -> StudentSearchResults`
+* **BM25 Search Execution:** Pass the fully formatted and tokenized queries to `self.retriever.retrieve(queries_tokens, k=k)`.
+* **Metadata Mapping:** * Iterate through the paired `queries` and returned `docs_idx`.
+  * Map the returned integer IDs directly to the original `ChunkSource` objects loaded in memory.
+  * Package the extracted chunks into `MinimalSearchResults` objects.
+* **Aggregation:** Wrap all processed query results inside the final `StudentSearchRes
 
 ---
 
 ## Step 4: CLI Integration (Python Fire)
-Expose the retrieval functionalities to the command-line using `python-fire`.
+Expose the retrieval functionalities to the command-line using `RagCLI.
 
 * **`search` Command:**
-  * **Signature:** `search(query: str, k: int = 5)`
-  * **Action:** Prints the retrieved sources to the console in a readable format.
-* **`search_dataset` Command:**
-  * **Signature:** `search_dataset(dataset_path: str, save_directory: str, k: int = 10)`
-  * **Action:** Loads the dataset, processes all queries, and saves the output JSON file in `save_directory` with the same filename as the input dataset.
+  * **Action:** Wraps a single query string into an `UnansweredQuestion`, passes it to `bulk_search` (with a default `k=5`), and prints the `.model_dump_json(indent=4)` to the console.
 
----
+* **`search_dataset` Command:**
+  * **Dataset Ingestion:** Opens the target JSON file and parses the entire structure using `RagDataset.model_validate_json()`. If the file cannot be read, raise a `DatasetError`.
+  * **Performance & UX:** **Use `tqdm`** to display a progress bar while iterating through the parsed dataset or executing the bulk queries, fulfilling the mandatory CLI requirement for long-running operations. Ensure your BM25 index and JSON mapping are only loaded into memory *once* before the loop starts.
+  * **Batch Execution:** Flattens the parsed dataset into a single list of `UnansweredQuestion` objects and passes them to `bulk_search`.
+  * **Serialization:** Saves the aggregated JSON output to the specified `save_directory`.
 
 ## Step 5: Optimization & Recall Checking
 Before moving to Phase 4, you must verify your retrieval performance.
