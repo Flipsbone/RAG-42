@@ -13,8 +13,9 @@ class RetrieverError(Exception):
     """
     pass
 
-class DatasetError(RetrieverError):
+
+class GeneraterError(RetrieverError):
     """
-    All errors specific append inside dataset_handler.
+    All errors specific append inside Generate
     """
     pass
