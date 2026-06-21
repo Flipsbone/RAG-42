@@ -5,7 +5,11 @@ from pathlib import Path
 from pydantic import TypeAdapter
 from src.exeptions import RetrieverError
 from src.model.model_indexing import ChunkSource
-from src.model.model_retrivial import UnansweredQuestion, MinimalSearchResults, StudentSearchResults
+from src.model.model_retrivial import (
+    UnansweredQuestion,
+    MinimalSearchResults,
+    StudentSearchResults
+)
 
 
 class Retriever:
@@ -33,21 +37,24 @@ class Retriever:
         except OSError as e:
             raise RetrieverError(
                 "The BM25 index could not be loaded. "
-                "Did you run: uv run python3 -m src index --max_chunk_size=2000"
+                "Did you run: uv run python3 -m src index "
+                "--max_chunk_size=2000"
             ) from e
 
         chunks_path = Path("./data/processed/chunks/chunk_mapping.json")
         try:
             with open(chunks_path, "r") as file:
                 raw_data = file.read()
-            self.chunks = TypeAdapter(list[ChunkSource]).validate_json(raw_data)
-        except OSError as e: 
+            self.chunks = (
+                TypeAdapter(list[ChunkSource]).validate_json(raw_data))
+        except OSError as e:
             raise RetrieverError(
                 f"The chunk mapping file could not be read at {chunks_path}. "
                 "Please run the indexing process again."
             ) from e
         except ValueError as e:
-            raise RetrieverError(f"Failed to parse chunk mapping JSON: {e}") from e
+            raise RetrieverError(
+                f"Failed to parse chunk mapping JSON: {e}") from e
 
     def _format_text(self, text: str) -> str:
         # just remaind maybe here adjust important word to keep the corresspondance like vllm
@@ -74,9 +81,9 @@ class Retriever:
 
     def build_index(self, chunks: list[ChunkSource]) -> None:
         self.chunks = chunks
-        expanded_corpus: list[str] = (
-            [self._format_text(
-                chunk.context_name + chunk.text) for chunk in chunks])
+        expanded_corpus: list[str] = [
+            self._format_text(f"{chunk.file_path} {chunk.context_name}" + chunk.text)
+            for chunk in chunks]
         tokens_corpus = self._tokenizing(expanded_corpus)
         self.retriever.index(tokens_corpus)
 
@@ -84,7 +91,7 @@ class Retriever:
                     queries: list[UnansweredQuestion],
                     k: int) -> StudentSearchResults:
         if k < 1:
-            raise RetrieverError(f"k must be > 0")
+            raise RetrieverError("k must be > 0")
 
         format_queries: list[str] = (
             [self._format_text(query.question) for query in queries])
@@ -100,7 +107,7 @@ class Retriever:
                 query_chunks.append(actual_chunk)
             search_result = MinimalSearchResults(
                 question_id=query.question_id,
-                question=query.question,
+                question_str=query.question,
                 retrieved_sources=query_chunks
             )
             all_results.append(search_result)

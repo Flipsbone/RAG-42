@@ -169,11 +169,18 @@ class MarkdownChunker:
         lines = text.splitlines(keepends=True)
         last_line_idx: int = 0
         current_header = "Introduction"
+        header_stack = {}
 
         for i, token in enumerate(tokens):
             if token.type == "heading_open":
+                level = int(token.tag[1]) 
                 if i + 1 < len(tokens) and tokens[i+1].type == "inline":
-                    current_header = tokens[i+1].content.strip()
+                    header_text = tokens[i+1].content.strip()
+                    keys_to_remove = [k for k in header_stack.keys() if k >= level]
+                    for k in keys_to_remove:
+                        del header_stack[k]
+                    header_stack[level] = header_text
+                    current_header = " > ".join([header_stack[k] for k in sorted(header_stack.keys())])
             if token.map is not None:
                 start_line, end_line = token.map
                 is_valid_block = (

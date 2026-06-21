@@ -20,18 +20,10 @@ class RagDataset(BaseModel):
 
 class MinimalSearchResults(BaseModel):
     question_id: str
-    question: str
+    question_str: str
     retrieved_sources: list[ChunkSource]
-
-
-class MinimalAnswer(MinimalSearchResults):
-    answer: str
 
 
 class StudentSearchResults(BaseModel):
     search_results: Sequence[MinimalSearchResults]
     k: int
-
-
-class StudentSearchResultsAndAnswer(StudentSearchResults):
-    search_results: Sequence[MinimalAnswer]

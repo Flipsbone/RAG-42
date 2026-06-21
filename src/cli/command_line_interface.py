@@ -12,7 +12,7 @@ from src.exeptions import RetrieverError, GeneraterError
 class RagCLI:
     """A Command Line Interface for managing the RAG document index."""
     def index(
-            self, target_dir: str = "vllm-0.10.1",
+            self, target_dir: str = "data/raw/vllm-0.10.1",
             max_chunk_size: int = 2000) -> None:
         """
         Indexes documents found in the target directory.
@@ -77,7 +77,6 @@ class RagCLI:
                 queries.append(unanswered_question)
         search_results = retriever.bulk_search(queries, k)
         print(f"Executing bulk search for {len(queries)} queries...")
-        search_results = retriever.bulk_search(queries, k)
         output_path = save_file / "dataset_docs_public.json"
         with open(output_path, "w") as out_file:
             out_file.write(search_results.model_dump_json(indent=4))
@@ -102,7 +101,8 @@ class RagCLI:
             self,
             student_answer_path: str,
             dataset_path: str,
-            k: int = 10, max_context_length: int = 2000) -> None:
+            k: int = 10,
+            max_context_length: int = 2000) -> None:
 
         answer_file: Path = Path(student_answer_path)
         try:
