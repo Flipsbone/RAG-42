@@ -1,7 +1,7 @@
 import ast
 from typing import Protocol
 from markdown_it import MarkdownIt
-from src.model.model_indexing import ChunkSource
+from src.model.model_indexing import ChunkSource, NodeContext
 
 
 class ChunkerStrategy(Protocol):
@@ -121,20 +121,36 @@ class PythonChunker:
         tree = ast.parse(text)
         lines = text.splitlines(keepends=True)
         last_line_idx = 0
+        node_ast: list[NodeContext] = []
         for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                for child in node.body:
+                    node_ast.append(NodeContext(child, node.name))
+            else:
+                node_ast.append(NodeContext(node, None))
+
+        for item in node_ast:
+            node = item.node
+            parent_class_name = item.class_name  
             start_line_idx = last_line_idx
             end_line_idx: int | None = node.end_lineno or start_line_idx
             block_text = "".join(lines[start_line_idx:end_line_idx])
             match node:
                 case ast.FunctionDef(name=func_name) | (
                         ast.AsyncFunctionDef(name=func_name)):
-                    context_name = f"Function: {func_name}"
+                    if parent_class_name:
+                        context_name = f"Class: {parent_class_name} - Method: {func_name}"
+                    else:
+                        context_name = f"Function: {func_name}"
                     builder._context_name = context_name
                 case ast.ClassDef(name=class_name):
                     context_name = f"Class: {class_name}"
                     builder._context_name = context_name
                 case _:
-                    context_name = "Module level"
+                    if parent_class_name:
+                        context_name = f"Class: {parent_class_name} - Attribute/Setup"
+                    else:
+                        context_name = "Module level"
                     builder._context_name = context_name
             builder.process_segment(block_text)
             last_line_idx = end_line_idx

@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-
+from dataclasses import dataclass
+import ast
 
 class MinimalSource(BaseModel):
     file_path: str
@@ -10,3 +11,9 @@ class MinimalSource(BaseModel):
 class ChunkSource(MinimalSource):
     context_name: str
     text: str
+
+
+@dataclass
+class NodeContext:
+    node: ast.stmt
+    class_name: str | None = None
