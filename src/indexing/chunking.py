@@ -53,16 +53,16 @@ class ChunkBuilder:
 
         for line in block_text.splitlines(keepends=True):
             if (len(line) + len(self._current_chunk_text) >
-                    (self.max_chunk_size - 1) and self._current_chunk_text):
+                    self.max_chunk_size and self._current_chunk_text):
                 self.seal_chunk()
 
             while len(line) > 0:
-                space_left = (self.max_chunk_size - 1) - len(
+                space_left = self.max_chunk_size - len(
                     self._current_chunk_text)
                 self._current_chunk_text += line[:space_left]
                 line = line[space_left:]
 
-                if len(self._current_chunk_text) == (self.max_chunk_size - 1):
+                if len(self._current_chunk_text) == self.max_chunk_size:
                     self.seal_chunk()
 
     def process_segment(self, block_text: str) -> None:
@@ -70,13 +70,13 @@ class ChunkBuilder:
         to the accumulator or line processing.
         """
         if len(self._current_chunk_text) + len(block_text) < (
-                (self.max_chunk_size - 1)):
+                self.max_chunk_size):
             self._current_chunk_text += block_text
             return
 
         self.seal_chunk()
 
-        if len(block_text) < (self.max_chunk_size - 1):
+        if len(block_text) < self.max_chunk_size:
             self._current_chunk_text += block_text
             return
 
@@ -86,7 +86,7 @@ class ChunkBuilder:
         """Handles the fast-path for small documents.
         Returns True if processed.
         """
-        if len(text) < (self.max_chunk_size - 1):
+        if len(text) < self.max_chunk_size:
             self._context_name = "Full Document"
             self._current_chunk_text = text
             self.seal_chunk()
@@ -122,6 +122,7 @@ class PythonChunker:
         lines = text.splitlines(keepends=True)
         last_line_idx = 0
         node_ast: list[NodeContext] = []
+
         for node in tree.body:
             if isinstance(node, ast.ClassDef):
                 for child in node.body:

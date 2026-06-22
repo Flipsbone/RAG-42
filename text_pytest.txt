@@ -1,0 +1,9 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.0, pytest-9.1.0, pluggy-1.6.0
+rootdir: /home/advacher/cocore/RAG
+configfile: pyproject.toml
+collected 9 items
+
+test_pytest/src/indexing/test_chunking.py .........                      [100%]
+
+============================== 9 passed in 0.14s ===============================
