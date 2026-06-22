@@ -132,7 +132,7 @@ class PythonChunker:
 
         for item in node_ast:
             node = item.node
-            parent_class_name = item.class_name  
+            parent_class_name = item.class_name
             start_line_idx = last_line_idx
             end_line_idx: int | None = node.end_lineno or start_line_idx
             block_text = "".join(lines[start_line_idx:end_line_idx])
@@ -140,7 +140,9 @@ class PythonChunker:
                 case ast.FunctionDef(name=func_name) | (
                         ast.AsyncFunctionDef(name=func_name)):
                     if parent_class_name:
-                        context_name = f"Class: {parent_class_name} - Method: {func_name}"
+                        context_name = (
+                            f"Class: {parent_class_name} - Method: {func_name}"
+                            )
                     else:
                         context_name = f"Function: {func_name}"
                     builder._context_name = context_name
@@ -149,7 +151,8 @@ class PythonChunker:
                     builder._context_name = context_name
                 case _:
                     if parent_class_name:
-                        context_name = f"Class: {parent_class_name} - Attribute/Setup"
+                        context_name = (
+                            f"Class: {parent_class_name} - Attribute/Setup")
                     else:
                         context_name = "Module level"
                     builder._context_name = context_name
@@ -165,17 +168,21 @@ class MarkdownChunker:
         and delegates assembly to the ChunkBuilder.
     """
 
-    def chunk(self, text: str, file_path: str, max_chunk_size: int) -> list[ChunkSource]:
-        
+    def chunk(
+            self,
+            text: str,
+            file_path: str,
+            max_chunk_size: int) -> list[ChunkSource]:
+
         builder = ChunkBuilder(file_path, max_chunk_size)
-        
+
         if builder.try_process_full_document(text):
             return builder.chunks
 
         md = MarkdownIt()
         tokens = md.parse(text)
         lines = text.splitlines(keepends=True)
-        
+
         last_line_idx = 0
         current_header = "Introduction"
         builder._context_name = f"Section: {current_header}"

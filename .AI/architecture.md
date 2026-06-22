@@ -13,6 +13,8 @@ Phase 5: Evaluation & CLI IntegrationA working pipeline needs a user interface a
 Phase 6: Documentation & Defense PreparationThe final step is proving you understand your code and ensuring it passes peer evaluation.Write a Comprehensive README.md: Document how to install dependencies via uv sync, how to run the ingestion pipeline, how to trigger queries via the CLI, and how to execute the evaluation system.Prepare for "Recode" Instructions: Review your code thoroughly. Be ready to quickly modify a data structure, tweak a prompt, or adjust a chunking parameter on the fly during your evaluation to prove complete ownership of the implementation.
 
 
+add good cut into chunk code == 21% -> 29%
+
 add path into chunk == 25% ->
 add path into chunk == 53% ->  
 
