@@ -154,45 +154,36 @@ class MarkdownChunker:
         and delegates assembly to the ChunkBuilder.
     """
 
-    def chunk(
-            self,
-            text: str,
-            file_path: str,
-            max_chunk_size: int) -> list[ChunkSource]:
-
+    def chunk(self, text: str, file_path: str, max_chunk_size: int) -> list[ChunkSource]:
+        
         builder = ChunkBuilder(file_path, max_chunk_size)
+        
         if builder.try_process_full_document(text):
             return builder.chunks
 
         md = MarkdownIt()
         tokens = md.parse(text)
         lines = text.splitlines(keepends=True)
-        last_line_idx: int = 0
+        
+        last_line_idx = 0
         current_header = "Introduction"
-        header_stack = {}
+        builder._context_name = f"Section: {current_header}"
 
         for i, token in enumerate(tokens):
-            if token.type == "heading_open":
-                level = int(token.tag[1]) 
-                if i + 1 < len(tokens) and tokens[i+1].type == "inline":
-                    header_text = tokens[i+1].content.strip()
-                    keys_to_remove = [k for k in header_stack.keys() if k >= level]
-                    for k in keys_to_remove:
-                        del header_stack[k]
-                    header_stack[level] = header_text
-                    current_header = " > ".join([header_stack[k] for k in sorted(header_stack.keys())])
-            if token.map is not None:
-                start_line, end_line = token.map
-                is_valid_block = (
-                    (token.nesting == 1) or (token.type == "fence"))
-                if is_valid_block and start_line >= last_line_idx:
-                    block_text = "".join(lines[last_line_idx:end_line])
-                    context_name = f"Section: {current_header}"
-                    builder._context_name = context_name
-                    builder.process_segment(block_text, context_name)
-                    last_line_idx = end_line
+            if token.type == "heading_open" and token.map is not None:
+                start_line = token.map[0]
 
-        builder.process_tail_and_seal(
-            lines, last_line_idx, f"Section: {current_header}")
+                if start_line > last_line_idx:
+                    block_text = "".join(lines[last_line_idx:start_line])
+                    builder.process_segment(block_text, builder._context_name)
+                    last_line_idx = start_line
+
+                if i + 1 < len(tokens) and tokens[i+1].type == "inline":
+                    current_header = tokens[i+1].content.strip()
+
+                builder.seal_chunk()
+                builder._context_name = f"Section: {current_header}"
+
+        builder.process_tail_and_seal(lines, last_line_idx, builder._context_name)
 
         return builder.chunks

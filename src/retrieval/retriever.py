@@ -60,11 +60,12 @@ class Retriever:
         # just remaind maybe here adjust important word to keep the corresspondance like vllm
         # and not v + llm you will loose your sementic
         text = text.replace("vLLM", "VLLMPROTECTED")
+        text_with_spaces = text.replace('_', ' ')
+        text = text + " " + text_with_spaces
         # Handle Acronyms (e.g., "HTTPResponse" -> "HTTP Response")
         text = re.sub(r'([a-z])([A-Z][a-z])', r'\1 \2', text)
         # Handle lowercase/Uppercase (e.g., "getHTTP" -> "get HTTP")
         text = re.sub(r'([a-z\d])([A-Z])', r'\1 \2', text)
-        text = text.replace('_', ' ')
         text = text.replace("VLLMPROTECTED", "vllm")
         return text
 

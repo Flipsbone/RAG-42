@@ -13,9 +13,6 @@ def main() -> int:
                 f"Indexation Error: Ignored {log['file']}: "
                 f"{log['error']}", file=sys.stderr)
         sys.exit(1)
-    except error.DatasetError as e:
-        print(f"Dataset Error: {e}", file=sys.stderr)
-        sys.exit(1)
     except error.RetrieverError as e:
         print(f"Retriever Error: {e}", file=sys.stderr)
         sys.exit(1)

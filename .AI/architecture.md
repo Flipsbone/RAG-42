@@ -15,3 +15,8 @@ Phase 6: Documentation & Defense PreparationThe final step is proving you unders
 
 add path into chunk == 43 -> 47% for code
 add path into chunk == 59 -> 58% for doc 
+
+
+Keep the original snake_case, but also append a space-separated version
+47% -> 52% for code
+58 -> 59% for doc 

@@ -43,12 +43,12 @@ class RagCLI:
         print(search_results.model_dump_json(indent=4))
 
     def search_dataset(
-            self, dataset_path: str,
-            save_directory: str,
-            k: int = 10) -> None:
+            self, dataset_path: str = "data/datasets/UnansweredQuestions/my_dataset_public.json",
+            save_directory: str ="data/output/search_results",
+            k: int = 5) -> None:
         """
-        Process multiple questions from a
-        JSON dataset and save the search results.
+        Process multiple questions from a JSON
+        dataset and save the search results.
 
         Args:
             dataset_path: Path to the input
@@ -69,7 +69,6 @@ class RagCLI:
                 f"Dataset at {dataset_path} could not be read.") from e
         save_file: Path = Path(save_directory)
         save_file.mkdir(parents=True, exist_ok=True)
-
         queries: list[UnansweredQuestion] = []
         for _, unanswered_questions in (
                 tqdm(dataset_obj, desc="Parsing dataset queries")):
@@ -77,16 +76,25 @@ class RagCLI:
                 queries.append(unanswered_question)
         search_results = retriever.bulk_search(queries, k)
         print(f"Executing bulk search for {len(queries)} queries...")
-        output_path = save_file / "dataset_docs_public.json"
+        file_name: str = dataset_file.name
+        output_path = save_file / file_name
         with open(output_path, "w") as out_file:
             out_file.write(search_results.model_dump_json(indent=4))
         print(f"Dataset search complete. Results saved to {output_path}")
 
     def answer(
             self,
-            student_answer_path: str,
-            save_directory: str) -> None:
+            student_answer_path: str = "data/output/search_results/my_dataset_public.json",
+            save_directory: str = "data/output/search_results_and_answer") -> None:
+        """
+        Process answer from a JSON
+        search results and save the search results and anser.
 
+        Args:
+            student_answer_path: Path to the input
+            JSON output (e.g., search_results).
+            save_directory: Directory where the output JSON will be saved.
+        """
         answer_file: Path = Path(student_answer_path)
         try:
             with open(answer_file, "r") as file:
@@ -97,31 +105,31 @@ class RagCLI:
             raise GeneraterError(
                 f"Dataset at {student_answer_path} could not be read.") from e
 
-    def evaluate(
-            self,
-            student_answer_path: str,
-            dataset_path: str,
-            k: int = 10,
-            max_context_length: int = 2000) -> None:
+    # def evaluate(
+    #         self,
+    #         student_answer_path: str,
+    #         dataset_path: str,
+    #         k: int = 10,
+    #         max_context_length: int = 2000) -> None:
 
-        answer_file: Path = Path(student_answer_path)
-        try:
-            with open(answer_file, "r") as file:
-                raw_data_answer: str = file.read()
-                answer_obj: RagDataset = (
-                    RagDataset.model_validate_json(raw_data_answer))
-        except OSError as e:
-            raise RetrieverError(
-                f"Dataset at {student_answer_path} could not be read.") from e
+    #     answer_file: Path = Path(student_answer_path)
+    #     try:
+    #         with open(answer_file, "r") as file:
+    #             raw_data_answer: str = file.read()
+    #             answer_obj: RagDataset = (
+    #                 RagDataset.model_validate_json(raw_data_answer))
+    #     except OSError as e:
+    #         raise RetrieverError(
+    #             f"Dataset at {student_answer_path} could not be read.") from e
 
-        dataset_file: Path = Path(dataset_path)
-        try:
-            with open(dataset_file, "r") as file:
-                raw_data: str = file.read()
-                dataset_obj: RagDataset = (
-                    RagDataset.model_validate_json(raw_data))
-        except OSError as e:
-            raise RetrieverError(
-                f"Dataset at {dataset_path} could not be read.") from e
+    #     dataset_file: Path = Path(dataset_path)
+    #     try:
+    #         with open(dataset_file, "r") as file:
+    #             raw_data: str = file.read()
+    #             dataset_obj: RagDataset = (
+    #                 RagDataset.model_validate_json(raw_data))
+    #     except OSError as e:
+    #         raise RetrieverError(
+    #             f"Dataset at {dataset_path} could not be read.") from e
 
-        print("Student data is valid: True")
+    #     print("Student data is valid: True")
