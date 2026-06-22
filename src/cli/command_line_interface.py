@@ -6,7 +6,7 @@ from src.model.model_retrivial import (
     UnansweredQuestion,
     RagDataset,
     StudentSearchResults)
-from src.exeptions import RetrieverError, GeneraterError
+from src.exeptions import IndexationError, RetrieverError, GeneraterError
 
 
 class RagCLI:
@@ -21,6 +21,8 @@ class RagCLI:
             target_dir: The folder path containing the raw documents.
             max_chunk_size: The maximum character limit for each text chunk.
         """
+        if max_chunk_size > 2000 :
+            raise ValueError(f"max_chunk_size : {max_chunk_size} must be < 2000")
         path = Path(target_dir)
         indexer = Indexation(path, max_chunk_size)
         indexer.processed_chunks()

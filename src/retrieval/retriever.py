@@ -60,8 +60,8 @@ class Retriever:
         # just remaind maybe here adjust important word to keep the corresspondance like vllm
         # and not v + llm you will loose your sementic
         text = text.replace("vLLM", "VLLMPROTECTED")
-        text_with_spaces = text.replace('_', ' ')
-        text = text + " " + text_with_spaces
+        # text_with_spaces = text.replace('_', ' ')
+        # text = text + " " + text_with_spaces
         # Handle Acronyms (e.g., "HTTPResponse" -> "HTTP Response")
         text = re.sub(r'([a-z])([A-Z][a-z])', r'\1 \2', text)
         # Handle lowercase/Uppercase (e.g., "getHTTP" -> "get HTTP")
@@ -80,11 +80,16 @@ class Retriever:
         )
         return text_data
 
-    def build_index(self, chunks: list[ChunkSource]) -> None:
+    def build_index(self, chunks: list[ChunkSource], max_chunk_size: int) -> None:
         self.chunks = chunks
-        expanded_corpus: list[str] = [
-            self._format_text(f"{chunk.file_path} {chunk.context_name}" + chunk.text)
-            for chunk in chunks]
+        expanded_corpus: list[str] = []
+        for chunk in chunks:
+            # metadata_prefix = f"{chunk.file_path} {chunk.context_name} "
+            # formatted_text = self._format_text(chunk.text)
+            # available_space: int = max_chunk_size - len(metadata_prefix)
+            # if available_space < max_chunk_size:
+            #     searchable_string = f"{metadata_prefix}{formatted_text}"
+            expanded_corpus.append(chunk.text)
         tokens_corpus = self._tokenizing(expanded_corpus)
         self.retriever.index(tokens_corpus)
 

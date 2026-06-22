@@ -46,52 +46,47 @@ class ChunkBuilder:
         self._current_start_char_idx += len(self._current_chunk_text)
         self._current_chunk_text = ""
 
-    def process_lines(self, block_text: str, context_name: str) -> None:
+    def process_lines(self, block_text: str) -> None:
         """Processes a block line by line when
         it natively exceeds the max size.
         """
-        # header = f"# [Continued: {context_name}]\n" if context_name else ""
 
         for line in block_text.splitlines(keepends=True):
             if (len(line) + len(self._current_chunk_text) >
-                    self.max_chunk_size and self._current_chunk_text):
+                    (self.max_chunk_size - 1) and self._current_chunk_text):
                 self.seal_chunk()
-                # self._current_chunk_text = header
-                # header = ""
 
             while len(line) > 0:
-                space_left = self.max_chunk_size - len(
+                space_left = (self.max_chunk_size - 1) - len(
                     self._current_chunk_text)
                 self._current_chunk_text += line[:space_left]
                 line = line[space_left:]
 
-                if len(self._current_chunk_text) == self.max_chunk_size:
+                if len(self._current_chunk_text) == (self.max_chunk_size - 1):
                     self.seal_chunk()
-                    # self._current_chunk_text = header
-                    # header = ""
 
-    def process_segment(self, block_text: str, context_name: str) -> None:
+    def process_segment(self, block_text: str) -> None:
         """Evaluates and routes a text segment
         to the accumulator or line processing.
         """
         if len(self._current_chunk_text) + len(block_text) < (
-                self.max_chunk_size):
+                (self.max_chunk_size - 1)):
             self._current_chunk_text += block_text
             return
 
         self.seal_chunk()
 
-        if len(block_text) < self.max_chunk_size:
+        if len(block_text) < (self.max_chunk_size - 1):
             self._current_chunk_text += block_text
             return
 
-        self.process_lines(block_text, context_name)
+        self.process_lines(block_text)
 
     def try_process_full_document(self, text: str) -> bool:
         """Handles the fast-path for small documents.
         Returns True if processed.
         """
-        if len(text) < self.max_chunk_size:
+        if len(text) < (self.max_chunk_size - 1):
             self._context_name = "Full Document"
             self._current_chunk_text = text
             self.seal_chunk()
@@ -100,12 +95,11 @@ class ChunkBuilder:
 
     def process_tail_and_seal(
             self, lines: list[str],
-            last_line_idx: int,
-            context_name: str) -> None:
+            last_line_idx: int) -> None:
         """Processes any remaining lines and seals the final chunk."""
         if last_line_idx < len(lines):
             remaining_text = "".join(lines[last_line_idx:])
-            self.process_segment(remaining_text, context_name)
+            self.process_segment(remaining_text)
         self.seal_chunk()
 
 
@@ -142,10 +136,10 @@ class PythonChunker:
                 case _:
                     context_name = "Module level"
                     builder._context_name = context_name
-            builder.process_segment(block_text, context_name)
+            builder.process_segment(block_text)
             last_line_idx = end_line_idx
 
-        builder.process_tail_and_seal(lines, last_line_idx, "Trailing code")
+        builder.process_tail_and_seal(lines, last_line_idx)
         return builder.chunks
 
 
@@ -175,7 +169,7 @@ class MarkdownChunker:
 
                 if start_line > last_line_idx:
                     block_text = "".join(lines[last_line_idx:start_line])
-                    builder.process_segment(block_text, builder._context_name)
+                    builder.process_segment(block_text)
                     last_line_idx = start_line
 
                 if i + 1 < len(tokens) and tokens[i+1].type == "inline":
@@ -184,6 +178,6 @@ class MarkdownChunker:
                 builder.seal_chunk()
                 builder._context_name = f"Section: {current_header}"
 
-        builder.process_tail_and_seal(lines, last_line_idx, builder._context_name)
+        builder.process_tail_and_seal(lines, last_line_idx)
 
         return builder.chunks

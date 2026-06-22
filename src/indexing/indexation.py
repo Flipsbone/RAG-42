@@ -47,7 +47,7 @@ class Indexation:
                 continue
 
         retriever = Retriever()
-        retriever.build_index(all_processed_chunks)
+        retriever.build_index(all_processed_chunks, self.max_chunk_size)
         retriever.save_index()
         if failed_logs:
             raise IndexationError(failed_logs)
