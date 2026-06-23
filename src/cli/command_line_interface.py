@@ -6,7 +6,7 @@ from src.model.model_retrivial import (
     UnansweredQuestion,
     RagDataset,
     StudentSearchResults)
-from src.exeptions import IndexationError, RetrieverError, GeneraterError
+from src.exeptions import RetrieverError, GeneraterError
 
 
 class RagCLI:
@@ -21,8 +21,9 @@ class RagCLI:
             target_dir: The folder path containing the raw documents.
             max_chunk_size: The maximum character limit for each text chunk.
         """
-        if max_chunk_size > 2000 :
-            raise ValueError(f"max_chunk_size : {max_chunk_size} must be < 2000")
+        if max_chunk_size > 2000:
+            raise ValueError(
+                f"max_chunk_size : {max_chunk_size} must be < 2000")
         path = Path(target_dir)
         indexer = Indexation(path, max_chunk_size)
         indexer.processed_chunks()
@@ -45,8 +46,9 @@ class RagCLI:
         print(search_results.model_dump_json(indent=4))
 
     def search_dataset(
-            self, dataset_path: str = "data/datasets/UnansweredQuestions/my_dataset_public.json",
-            save_directory: str ="data/output/search_results",
+            self, dataset_path: str = (
+                "data/datasets/UnansweredQuestions/my_dataset_public.json"),
+            save_directory: str = "data/output/search_results",
             k: int = 5) -> None:
         """
         Process multiple questions from a JSON
@@ -86,8 +88,10 @@ class RagCLI:
 
     def answer(
             self,
-            student_answer_path: str = "data/output/search_results/my_dataset_public.json",
-            save_directory: str = "data/output/search_results_and_answer") -> None:
+            student_answer_path: str = (
+                "data/output/search_results/my_dataset_public.json"),
+            save_directory: str = (
+                "data/output/search_results_and_answer")) -> None:
         """
         Process answer from a JSON
         search results and save the search results and anser.

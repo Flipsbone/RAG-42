@@ -1,5 +1,4 @@
 import bm25s
-import re
 import Stemmer
 from pathlib import Path
 from pydantic import TypeAdapter
@@ -82,8 +81,7 @@ class Retriever:
 
     def build_index(
             self,
-            chunks: list[ChunkSource],
-            max_chunk_size: int) -> None:
+            chunks: list[ChunkSource]) -> None:
 
         self.chunks = chunks
         expanded_corpus: list[str] = []

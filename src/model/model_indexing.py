@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from dataclasses import dataclass
 import ast
 
+
 class MinimalSource(BaseModel):
     file_path: str
     first_character_index: int
