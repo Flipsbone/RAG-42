@@ -1,0 +1,45 @@
+    def process_lines(self, block_text: str) -> None:
+        """Processes a block line by line when
+        it natively exceeds the max size.
+        """
+
+        for line in block_text.splitlines(keepends=True):
+            if (len(line) + len(self._current_chunk_text) >
+                    self.max_chunk_size and self._current_chunk_text):
+                self.seal_chunk()
+
+            while len(line) > 0:
+                space_left = self.max_chunk_size - len(
+                    self._current_chunk_text)
+                self._current_chunk_text += line[:space_left]
+                line = line[space_left:]
+
+                if len(self._current_chunk_text) == self.max_chunk_size:
+                    self.seal_chunk()
+
+    def process_segment(self, block_text: str) -> None:
+        """Evaluates and routes a text segment
+        to the accumulator or line processing.
+        """
+        if len(self._current_chunk_text) + len(block_text) < (
+                self.max_chunk_size):
+            self._current_chunk_text += block_text
+            return
+
+        self.seal_chunk()
+
+        if len(block_text) < self.max_chunk_size:
+            self._current_chunk_text += block_text
+            return
+
+        self.process_lines(block_text)
+
+    def process_tail_and_seal(
+            self, lines: list[str],
+            last_line_idx: int) -> None:
+        """Processes any remaining lines and seals the final chunk."""
+        if last_line_idx < len(lines):
+            remaining_text = "".join(lines[last_line_idx:])
+            self.process_segment(remaining_text)
+        self.seal_chunk()
+

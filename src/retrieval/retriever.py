@@ -55,19 +55,6 @@ class Retriever:
             raise RetrieverError(
                 f"Failed to parse chunk mapping JSON: {e}") from e
 
-    def _format_text(self, text: str) -> str:
-        # # just remaind maybe here adjust important word to keep the corresspondance like vllm
-        # # and not v + llm you will loose your sementic
-        # text = text.replace("vLLM", "VLLMPROTECTED")
-        # # text_with_spaces = text.replace('_', ' ')
-        # # text = text + " " + text_with_spaces
-        # # Handle Acronyms (e.g., "HTTPResponse" -> "HTTP Response")
-        # text = re.sub(r'([a-z])([A-Z][a-z])', r'\1 \2', text)
-        # # Handle lowercase/Uppercase (e.g., "getHTTP" -> "get HTTP")
-        # text = re.sub(r'([a-z\d])([A-Z])', r'\1 \2', text)
-        # text = text.replace("VLLMPROTECTED", "vllm")
-        return text
-
     def _tokenizing(self, text_data: list[str]) -> list[str] | list[int]:
         text_data = bm25s.tokenize(
             texts=text_data,
@@ -86,7 +73,8 @@ class Retriever:
         self.chunks = chunks
         expanded_corpus: list[str] = []
         for chunk in chunks:
-            expanded_corpus.append(chunk.text)
+            expanded_corpus.append(
+                (chunk.context_name) + (chunk.file_path) + (chunk.text))
         tokens_corpus = self._tokenizing(expanded_corpus)
         self.retriever.index(tokens_corpus)
 
@@ -95,10 +83,11 @@ class Retriever:
                     k: int) -> StudentSearchResults:
         if k < 1:
             raise RetrieverError("k must be > 0")
+        questions: list[str] = []
+        for query in queries:
+            questions.append(query.question)
 
-        format_queries: list[str] = (
-            [self._format_text(query.question) for query in queries])
-        queries_tokens = self._tokenizing(format_queries)
+        queries_tokens = self._tokenizing(questions)
         docs_idx, scores = self.retriever.retrieve(queries_tokens, k=k)
 
         all_results: list[MinimalSearchResults] = []

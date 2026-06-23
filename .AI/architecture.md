@@ -19,8 +19,8 @@ add good cut into chunk document == 48% -> 55%
 creation 2 index chunk code == 34% -> 31%
 creation 2 index chunk doc == 55% -> 41%
 
-add path into chunk == 25% ->
-add path into chunk == 53% ->  
+add path into chunk == 34% -> 45%
+add path into chunk == 55% -> 58% 
 
 
 Keep the original snake_case, but also append a space-separated version
