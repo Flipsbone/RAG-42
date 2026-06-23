@@ -24,8 +24,12 @@ class RagCLI:
         if max_chunk_size > 2000:
             raise ValueError(
                 f"max_chunk_size : {max_chunk_size} must be < 2000")
+        if max_chunk_size < 1000:
+            raise ValueError(
+                f"max_chunk_size : {max_chunk_size} must be > 1000"
+                "in order to have a good semantic")
         path = Path(target_dir)
-        indexer = Indexation(path, max_chunk_size)
+        indexer = Indexation(path, (max_chunk_size - 1))
         indexer.processed_chunks()
 
     def search(self, query: str = "", k: int = 5) -> None:

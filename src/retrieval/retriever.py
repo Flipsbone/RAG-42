@@ -73,6 +73,10 @@ class Retriever:
         self.chunks = chunks
         expanded_corpus: list[str] = []
         for chunk in chunks:
+            if len(chunk.text) >= 2000:
+                print("-----------------START----------------------------")
+                print(chunk.text)
+                print("-----------------END----------------------------")
             expanded_corpus.append(
                 (chunk.context_name) + (chunk.file_path) + (chunk.text))
         tokens_corpus = self._tokenizing(expanded_corpus)
