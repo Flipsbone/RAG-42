@@ -11,3 +11,18 @@ Phase 4: Answer Generation SystemThis component synthesizes the retrieved chunks
 Phase 5: Evaluation & CLI IntegrationA working pipeline needs a user interface and a method to measure its performance.Build the CLI: Develop a straightforward command-line interface using a library like argparse or click. Ensure it supports key workflows: ingesting documents, querying the system, and running evaluations.Implement the Evaluation System: Create automated checks or metrics to evaluate both the retrieval accuracy (did you fetch the right chunks?) and generation quality (is the answer grounded in the context without hallucinating?).
 
 Phase 6: Documentation & Defense PreparationThe final step is proving you understand your code and ensuring it passes peer evaluation.Write a Comprehensive README.md: Document how to install dependencies via uv sync, how to run the ingestion pipeline, how to trigger queries via the CLI, and how to execute the evaluation system.Prepare for "Recode" Instructions: Review your code thoroughly. Be ready to quickly modify a data structure, tweak a prompt, or adjust a chunking parameter on the fly during your evaluation to prove complete ownership of the implementation.
+
+
+add good cut into chunk code == 21% -> 34%
+add good cut into chunk document == 48% -> 55%
+
+creation 2 index chunk code == 34% -> 31%
+creation 2 index chunk doc == 55% -> 41%
+
+add path into chunk == 34% -> 45%
+add path into chunk == 55% -> 58% 
+
+
+Keep the original snake_case, but also append a space-separated version
+47% -> 52% for code
+58 -> 59% for doc 

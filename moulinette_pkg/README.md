@@ -159,3 +159,10 @@ This produces `moulinette-fedora` and `moulinette-ubuntu` executables via Docker
   ]
 }
 ```
+
+
+
+uv run python -m moulinette evaluate_student_search_results \
+    ../data/output/search_results/dataset_code_private.json \
+    ../data/datasets/private/AnsweredQuestions/dataset_code_private.json \
+    --k 10 --max_context_length 2000 --threshold 0.50

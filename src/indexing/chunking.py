@@ -1,7 +1,7 @@
 import ast
 from typing import Protocol
 from markdown_it import MarkdownIt
-from src.model.model_indexing import ChunkSource
+from src.model.model_indexing import ChunkSource, NodeContext
 
 
 class ChunkerStrategy(Protocol):
@@ -46,18 +46,15 @@ class ChunkBuilder:
         self._current_start_char_idx += len(self._current_chunk_text)
         self._current_chunk_text = ""
 
-    def process_lines(self, block_text: str, context_name: str) -> None:
+    def process_lines(self, block_text: str) -> None:
         """Processes a block line by line when
         it natively exceeds the max size.
         """
-        # header = f"# [Continued: {context_name}]\n" if context_name else ""
 
         for line in block_text.splitlines(keepends=True):
             if (len(line) + len(self._current_chunk_text) >
                     self.max_chunk_size and self._current_chunk_text):
                 self.seal_chunk()
-                # self._current_chunk_text = header
-                # header = ""
 
             while len(line) > 0:
                 space_left = self.max_chunk_size - len(
@@ -67,10 +64,8 @@ class ChunkBuilder:
 
                 if len(self._current_chunk_text) == self.max_chunk_size:
                     self.seal_chunk()
-                    # self._current_chunk_text = header
-                    # header = ""
 
-    def process_segment(self, block_text: str, context_name: str) -> None:
+    def process_segment(self, block_text: str) -> None:
         """Evaluates and routes a text segment
         to the accumulator or line processing.
         """
@@ -85,7 +80,7 @@ class ChunkBuilder:
             self._current_chunk_text += block_text
             return
 
-        self.process_lines(block_text, context_name)
+        self.process_lines(block_text)
 
     def try_process_full_document(self, text: str) -> bool:
         """Handles the fast-path for small documents.
@@ -100,12 +95,11 @@ class ChunkBuilder:
 
     def process_tail_and_seal(
             self, lines: list[str],
-            last_line_idx: int,
-            context_name: str) -> None:
+            last_line_idx: int) -> None:
         """Processes any remaining lines and seals the final chunk."""
         if last_line_idx < len(lines):
             remaining_text = "".join(lines[last_line_idx:])
-            self.process_segment(remaining_text, context_name)
+            self.process_segment(remaining_text)
         self.seal_chunk()
 
 
@@ -127,25 +121,45 @@ class PythonChunker:
         tree = ast.parse(text)
         lines = text.splitlines(keepends=True)
         last_line_idx = 0
+        node_ast: list[NodeContext] = []
+
         for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                for child in node.body:
+                    node_ast.append(NodeContext(child, node.name))
+            else:
+                node_ast.append(NodeContext(node, None))
+
+        for item in node_ast:
+            node = item.node
+            parent_class_name = item.class_name
             start_line_idx = last_line_idx
             end_line_idx: int | None = node.end_lineno or start_line_idx
             block_text = "".join(lines[start_line_idx:end_line_idx])
             match node:
                 case ast.FunctionDef(name=func_name) | (
                         ast.AsyncFunctionDef(name=func_name)):
-                    context_name = f"Function: {func_name}"
+                    if parent_class_name:
+                        context_name = (
+                            f"Class: {parent_class_name} - Method: {func_name}"
+                            )
+                    else:
+                        context_name = f"Function: {func_name}"
                     builder._context_name = context_name
                 case ast.ClassDef(name=class_name):
                     context_name = f"Class: {class_name}"
                     builder._context_name = context_name
                 case _:
-                    context_name = "Module level"
+                    if parent_class_name:
+                        context_name = (
+                            f"Class: {parent_class_name} - Attribute/Setup")
+                    else:
+                        context_name = "Module level"
                     builder._context_name = context_name
-            builder.process_segment(block_text, context_name)
+            builder.process_segment(block_text)
             last_line_idx = end_line_idx
 
-        builder.process_tail_and_seal(lines, last_line_idx, "Trailing code")
+        builder.process_tail_and_seal(lines, last_line_idx)
         return builder.chunks
 
 
@@ -161,31 +175,33 @@ class MarkdownChunker:
             max_chunk_size: int) -> list[ChunkSource]:
 
         builder = ChunkBuilder(file_path, max_chunk_size)
+
         if builder.try_process_full_document(text):
             return builder.chunks
 
         md = MarkdownIt()
         tokens = md.parse(text)
         lines = text.splitlines(keepends=True)
-        last_line_idx: int = 0
+
+        last_line_idx = 0
         current_header = "Introduction"
+        builder._context_name = f"Section: {current_header}"
 
         for i, token in enumerate(tokens):
-            if token.type == "heading_open":
+            if token.type == "heading_open" and token.map is not None:
+                start_line = token.map[0]
+
+                if start_line > last_line_idx:
+                    block_text = "".join(lines[last_line_idx:start_line])
+                    builder.process_segment(block_text)
+                    last_line_idx = start_line
+
                 if i + 1 < len(tokens) and tokens[i+1].type == "inline":
                     current_header = tokens[i+1].content.strip()
-            if token.map is not None:
-                start_line, end_line = token.map
-                is_valid_block = (
-                    (token.nesting == 1) or (token.type == "fence"))
-                if is_valid_block and start_line >= last_line_idx:
-                    block_text = "".join(lines[last_line_idx:end_line])
-                    context_name = f"Section: {current_header}"
-                    builder._context_name = context_name
-                    builder.process_segment(block_text, context_name)
-                    last_line_idx = end_line
 
-        builder.process_tail_and_seal(
-            lines, last_line_idx, f"Section: {current_header}")
+                builder.seal_chunk()
+                builder._context_name = f"Section: {current_header}"
+
+        builder.process_tail_and_seal(lines, last_line_idx)
 
         return builder.chunks

@@ -5,6 +5,8 @@ from src.indexing.chunking import (
     PythonChunker,
     MarkdownChunker)
 from src.model.model_indexing import ChunkSource
+from src.retrieval.retriever import Retriever
+from src.exeptions import IndexationError
 
 
 class Indexation:
@@ -26,18 +28,26 @@ class Indexation:
             path for path in self.data_dir.rglob("*")
             if path.suffix in self.chunkers]
 
-    def processed_chunks(self) -> list[ChunkSource]:
+    def processed_chunks(self) -> None:
 
         all_processed_chunks: list[ChunkSource] = []
+        failed_logs: list[dict] = []
 
         for file_path in tqdm(
                 self.target_files, desc="Ingesting and chunking repository"):
+            try:
+                text_content = file_path.read_text(encoding="utf-8")
+                extension = file_path.suffix
+                strategy = self.chunkers[extension]
+                file_chunks = strategy.chunk(
+                    text_content, str(file_path), self.max_chunk_size)
+                all_processed_chunks.extend(file_chunks)
+            except Exception as e:
+                failed_logs.append({"file": file_path.name, "error": str(e)})
+                continue
 
-            text_content = file_path.read_text(encoding="utf-8")
-            extension = file_path.suffix
-            strategy = self.chunkers[extension]
-            file_chunks = strategy.chunk(
-                text_content, str(file_path), self.max_chunk_size)
-            all_processed_chunks.extend(file_chunks)
-
-        return all_processed_chunks
+        retriever = Retriever()
+        retriever.build_index(all_processed_chunks)
+        retriever.save_index()
+        if failed_logs:
+            raise IndexationError(failed_logs)
