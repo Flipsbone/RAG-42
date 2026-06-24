@@ -6,6 +6,9 @@ SEARCH = search --query="What are the default values for FP8_MIN and FP8_MAX con
 # SEARCH_D = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=1
 SEARCH_D = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_code_public.json --save_directory data/output/search_results --k=1
 EVALUATE = evaluate --student_answer_path data/output/search_results/dataset_docs_public.json --dataset_path data/datasets/AnsweredQuestions/dataset_docs_public.json --k=1 --max_context_length=2000
+ANSWER = answer --query="my question is" --k=1
+# ANSWER_DATASET = answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer
+ANSWER_DATASET = answer_dataset --student_search_results_path data/output/search_results/dataset_code_public.json --save_directory data/output/search_results_and_answer
 EVAL_SCRIPT := ./moulinette_pkg/moulinette-ubuntu 
 # RESULTS := data/output/search_results/dataset_docs_public.json
 # DATASET := datasets_public/public/AnsweredQuestions/dataset_docs_public.json
@@ -39,6 +42,14 @@ evaluate: install
 	@echo "Running the program with moulinette..."
 	$(PYTHON) -m moulinette $(EVALUATE)
 
+answer: install
+	@echo "Running the program with answer..."
+	$(PYTHON) $(MAIN) $(ANSWER)
+
+answer_dataset: install
+	@echo "Running the program with answer..."
+	$(PYTHON) $(MAIN) $(ANSWER_DATASET)
+
 moulinette: install
 	@echo "Running the program with moulinette..."
 	$(EVAL_SCRIPT) list_valid_questions \
@@ -71,4 +82,4 @@ clean:
 	rm -rf data/processed
 	rm -rf data/output
 
-.PHONY: all install run search search_dataset evaluate debug lint lint-strict test clean
+.PHONY: all install run search search_dataset answer answer_dataset evaluate debug lint lint-strict test clean

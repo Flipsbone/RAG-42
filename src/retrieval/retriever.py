@@ -130,6 +130,25 @@ class Retriever:
         tokens_corpus = self._tokenizing(expanded_corpus)
         self.retriever.index(tokens_corpus)
 
+    def save_dataset(
+            self,
+            nb_queries: int,
+            dataset_file: Path,
+            save_file: Path,
+            search_results: StudentSearchResults) -> None:
+
+        print(f"Executing bulk search for {nb_queries} queries...")
+        file_name: str = dataset_file.name
+        output_path = save_file / file_name
+        try:
+            with open(output_path, "w") as out_file:
+                out_file.write(search_results.model_dump_json(indent=4))
+            self._save_hash_file(output_path)
+            print(f"Dataset search complete. Results saved to {output_path}")
+        except OSError as e:
+            raise RetrieverError(
+                f"Dataset at {out_file} could not save.") from e
+
     def bulk_search(
             self,
             queries: list[UnansweredQuestion],
