@@ -1,8 +1,9 @@
 import bm25s
 import Stemmer
+from src.utils.security import save_hash_file, verify_file_hash
 from pathlib import Path
 from pydantic import TypeAdapter
-from src.exeptions import RetrieverError
+from src.exceptions import RetrieverError, FileAccessError
 from src.model.model_indexing import ChunkSource
 from src.model.model_retrivial import (
     UnansweredQuestion,
@@ -19,41 +20,54 @@ class Retriever:
 
     def save_index(self) -> None:
         try:
-            self.retriever.save("./data/processed/bm25_index")
+            index_dir = Path("./data/processed/bm25_index")
+            index_dir.mkdir(parents=True, exist_ok=True)
+            self.retriever.save(str(index_dir))
+            for file in index_dir.iterdir():
+                if file.is_file():
+                    save_hash_file(file)
+
             chunks_dir = Path("./data/processed/chunks")
             chunks_dir.mkdir(parents=True, exist_ok=True)
             adapter = TypeAdapter(list[ChunkSource])
-            json_data = adapter.dump_json(self.chunks)
+            json_data = adapter.dump_json(self.chunks, indent=4)
+            chunk_mapping_path = chunks_dir / "chunk_mapping.json"
+
             with open(chunks_dir / "chunk_mapping.json", "wb") as f:
                 f.write(json_data)
-        except OSError as e:
+            save_hash_file(chunk_mapping_path)
+
+        except (OSError, FileAccessError) as e:
             error_msg = f"the file could not be save {str(e)}"
             raise RetrieverError(error_msg) from e
 
     def load_index(self) -> None:
-        try:
-            self.retriever = bm25s.BM25.load("./data/processed/bm25_index")
-        except OSError as e:
-            raise RetrieverError(
-                "The BM25 index could not be loaded. "
-                "Did you run: uv run python3 -m src index "
-                "--max_chunk_size=2000"
-            ) from e
+        index_dir: Path = Path("./data/processed/bm25_index")
+        chunks_dir: Path = Path("./data/processed/chunks")
+        chunk_mapping_path: Path = chunks_dir / "chunk_mapping.json"
 
-        chunks_path = Path("./data/processed/chunks/chunk_mapping.json")
+        if not index_dir.exists():
+            raise RetrieverError(
+                "Index directory does not exist. Please run indexing first.")
+        for file in index_dir.iterdir():
+            if file.is_file() and not file.name.endswith(".hash"):
+                verify_file_hash(file)
+        if not chunk_mapping_path.exists():
+            raise RetrieverError(
+                f"Chunk mapping file not found at {chunk_mapping_path}")
+
+        verify_file_hash(chunk_mapping_path)
+
         try:
-            with open(chunks_path, "r") as file:
-                raw_data = file.read()
+            self.retriever = bm25s.BM25.load(str(index_dir))
+            with open(chunk_mapping_path, "r", encoding="utf-8") as f:
+                raw_data = f.read()
             self.chunks = (
                 TypeAdapter(list[ChunkSource]).validate_json(raw_data))
-        except OSError as e:
+
+        except Exception as e:
             raise RetrieverError(
-                f"The chunk mapping file could not be read at {chunks_path}. "
-                "Please run the indexing process again."
-            ) from e
-        except ValueError as e:
-            raise RetrieverError(
-                f"Failed to parse chunk mapping JSON: {e}") from e
+                f"Failed to load index or chunks: {str(e)}") from e
 
     def _tokenizing(self, text_data: list[str]) -> list[str] | list[int]:
         text_data = bm25s.tokenize(
@@ -73,18 +87,35 @@ class Retriever:
         self.chunks = chunks
         expanded_corpus: list[str] = []
         for chunk in chunks:
-            if len(chunk.text) >= 2000:
-                print("-----------------START----------------------------")
-                print(chunk.text)
-                print("-----------------END----------------------------")
             expanded_corpus.append(
                 (chunk.context_name) + (chunk.file_path) + (chunk.text))
         tokens_corpus = self._tokenizing(expanded_corpus)
         self.retriever.index(tokens_corpus)
 
-    def bulk_search(self,
-                    queries: list[UnansweredQuestion],
-                    k: int) -> StudentSearchResults:
+    def save_dataset(
+            self,
+            nb_queries: int,
+            dataset_file: Path,
+            save_file: Path,
+            search_results: StudentSearchResults) -> None:
+
+        print(f"Executing bulk search for {nb_queries} queries...")
+        file_name: str = dataset_file.name
+        output_path = save_file / file_name
+        try:
+            with open(output_path, "w") as output_file:
+                output_file.write(search_results.model_dump_json(indent=4))
+            save_hash_file(output_path)
+            print(f"Dataset search complete. Results saved to {output_path}")
+        except OSError as e:
+            raise RetrieverError(
+                f"Dataset at {output_file} could not save.") from e
+
+    def bulk_search(
+            self,
+            queries: list[UnansweredQuestion],
+            k: int) -> StudentSearchResults:
+
         if k < 1:
             raise RetrieverError("k must be > 0")
         questions: list[str] = []
@@ -111,4 +142,5 @@ class Retriever:
             search_results=all_results,
             k=k
         )
+
         return search_results

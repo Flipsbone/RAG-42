@@ -8,6 +8,7 @@ dependencies = [
     "bm25s>=0.3.9",
     "fire>=0.7.1",
     "markdown-it-py>=4.2.0",
+    "ollama>=0.6.2",
     "pydantic>=2.13.4",
     "pystemmer>=3.1.0",
     "pytest>=9.1.0",

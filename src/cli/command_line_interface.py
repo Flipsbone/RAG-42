@@ -2,11 +2,17 @@ from pathlib import Path
 from tqdm import tqdm
 from src.indexing.indexation import Indexation
 from src.retrieval.retriever import Retriever
+from src.generation.generator import Generator
 from src.model.model_retrivial import (
     UnansweredQuestion,
     RagDataset,
+    MinimalSearchResults,
     StudentSearchResults)
-from src.exeptions import RetrieverError, GeneraterError
+from src.model.model_generation import (
+    MinimalAnswer,
+    StudentSearchResultsAndAnswer
+)
+from src.exceptions import RetrieverError, GeneratorError
 
 
 class RagCLI:
@@ -74,55 +80,121 @@ class RagCLI:
                     RagDataset.model_validate_json(raw_data))
         except OSError as e:
             raise RetrieverError(
-                f"Dataset at {dataset_path} could not be read.") from e
+                f"Dataset at {dataset_path} could not be read."
+                "have you lunch index ?") from e
+
         save_file: Path = Path(save_directory)
         save_file.mkdir(parents=True, exist_ok=True)
         queries: list[UnansweredQuestion] = []
+
         for _, unanswered_questions in (
                 tqdm(dataset_obj, desc="Parsing dataset queries")):
             for unanswered_question in unanswered_questions:
                 queries.append(unanswered_question)
-        search_results = retriever.bulk_search(queries, k)
-        print(f"Executing bulk search for {len(queries)} queries...")
-        file_name: str = dataset_file.name
-        output_path = save_file / file_name
-        with open(output_path, "w") as out_file:
-            out_file.write(search_results.model_dump_json(indent=4))
-        print(f"Dataset search complete. Results saved to {output_path}")
 
-    def answer(
+        search_results = retriever.bulk_search(queries, k)
+        retriever.save_dataset(
+            len(queries), dataset_file,
+            save_file, search_results)
+
+    def answer(self, query: str, k: int = 5) -> None:
+        """
+        Answer a single question using the indexed knowledge base.
+
+        Args:
+            query: The question to answer.
+            k: The maximum number of relevant snippets to retrieve.
+        """
+        retriever = Retriever()
+        retriever.load_index()
+
+        unanswered_query = UnansweredQuestion(question=query)
+        search_results: StudentSearchResults = (
+            retriever.bulk_search([unanswered_query], k))
+        mini_search_result: MinimalSearchResults = (
+            search_results.search_results[0])
+
+        generator = Generator()
+        answer_text = generator.generate_answer(
+            query,
+            mini_search_result.retrieved_sources
+        )
+
+        minimal_answer = MinimalAnswer(
+            question_id=mini_search_result.question_id,
+            question_str=mini_search_result.question_str,
+            retrieved_sources=mini_search_result.retrieved_sources,
+            answer=answer_text
+        )
+
+        print(minimal_answer.model_dump_json(indent=4))
+
+    def answer_dataset(
             self,
-            student_answer_path: str = (
+            student_search_results_path: str = (
                 "data/output/search_results/my_dataset_public.json"),
             save_directory: str = (
                 "data/output/search_results_and_answer")) -> None:
         """
         Process answer from a JSON
-        search results and save the search results and anser.
+        search results and save the search results and answer.
 
         Args:
-            student_answer_path: Path to the input
+            student_search_results_path: Path to the input
             JSON output (e.g., search_results).
             save_directory: Directory where the output JSON will be saved.
         """
-        answer_file: Path = Path(student_answer_path)
+        answer_file: Path = Path(student_search_results_path)
         try:
             with open(answer_file, "r") as file:
                 raw_data_answer: str = file.read()
                 answer_obj: StudentSearchResults = (
                     StudentSearchResults.model_validate_json(raw_data_answer))
         except OSError as e:
-            raise GeneraterError(
-                f"Dataset at {student_answer_path} could not be read.") from e
+            raise GeneratorError(
+                f"Dataset at {student_search_results_path} could not be read. "
+                "Did you launch search_dataset?") from e
+
+        answers: list[MinimalAnswer] = []
+
+        print(f"Loaded {len(answer_obj.search_results)} "
+              f"questions from {answer_file.name}")
+        generator = Generator()
+        for search_result in tqdm(
+                answer_obj.search_results, desc="Generating Answers"):
+
+            answer_text = generator.generate_answer(
+                search_result.question_str,
+                search_result.retrieved_sources
+            )
+            answers.append(
+                MinimalAnswer(
+                    question_id=search_result.question_id,
+                    question_str=search_result.question_str,
+                    retrieved_sources=search_result.retrieved_sources,
+                    answer=answer_text
+                )
+            )
+
+        answered_results = StudentSearchResultsAndAnswer(
+            search_results=answers,
+            k=answer_obj.k
+        )
+
+        save_path = Path(save_directory)
+        save_path.mkdir(parents=True, exist_ok=True)
+
+        generator.save_answer(save_path, answer_file, answered_results)
+
 
     # def evaluate(
     #         self,
-    #         student_answer_path: str,
+    #         student_search_results_path: str,
     #         dataset_path: str,
     #         k: int = 10,
     #         max_context_length: int = 2000) -> None:
 
-    #     answer_file: Path = Path(student_answer_path)
+    #     answer_file: Path = Path(student_search_results_path)
     #     try:
     #         with open(answer_file, "r") as file:
     #             raw_data_answer: str = file.read()
@@ -130,7 +202,8 @@ class RagCLI:
     #                 RagDataset.model_validate_json(raw_data_answer))
     #     except OSError as e:
     #         raise RetrieverError(
-    #             f"Dataset at {student_answer_path} could not be read.") from e
+    #             f"Dataset at {student_search_results_path} could not be"
+    #         ) from e
 
     #     dataset_file: Path = Path(dataset_path)
     #     try:

@@ -1,7 +1,7 @@
 import fire
 import sys
 from src.cli.command_line_interface import RagCLI
-import src.exeptions as error
+import src.exceptions as error
 
 
 def main() -> int:
@@ -15,6 +15,9 @@ def main() -> int:
         sys.exit(1)
     except error.RetrieverError as e:
         print(f"Retriever Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except error.GeneratorError as e:
+        print(f"Generator Error: {e}", file=sys.stderr)
         sys.exit(1)
     except PermissionError as e:
         print(f"Permission Error: {e}", file=sys.stderr)

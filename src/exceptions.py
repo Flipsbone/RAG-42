@@ -14,7 +14,17 @@ class RetrieverError(Exception):
     pass
 
 
-class GeneraterError(RetrieverError):
+class FileSecurityError(Exception):
+    """Raised when an integrity check or hash is invalid."""
+    pass
+
+
+class FileAccessError(Exception):
+    """Raised when a disk access problem occurs."""
+    pass
+
+
+class GeneratorError(Exception):
     """
     All errors specific append inside Generate
     """
