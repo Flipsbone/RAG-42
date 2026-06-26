@@ -12,7 +12,7 @@ from src.model.model_generation import (
     MinimalAnswer,
     StudentSearchResultsAndAnswer
 )
-from src.exeptions import RetrieverError, GeneraterError
+from src.exceptions import RetrieverError, GeneratorError
 
 
 class RagCLI:
@@ -151,11 +151,11 @@ class RagCLI:
                 answer_obj: StudentSearchResults = (
                     StudentSearchResults.model_validate_json(raw_data_answer))
         except OSError as e:
-            raise GeneraterError(
+            raise GeneratorError(
                 f"Dataset at {student_search_results_path} could not be read. "
                 "Did you launch search_dataset?") from e
 
-        answered_results: list[MinimalAnswer] = []
+        answers: list[MinimalAnswer] = []
 
         print(f"Loaded {len(answer_obj.search_results)} "
               f"questions from {answer_file.name}")
@@ -167,8 +167,7 @@ class RagCLI:
                 search_result.question_str,
                 search_result.retrieved_sources
             )
-
-            answered_results.append(
+            answers.append(
                 MinimalAnswer(
                     question_id=search_result.question_id,
                     question_str=search_result.question_str,
@@ -177,21 +176,16 @@ class RagCLI:
                 )
             )
 
-        final_output = StudentSearchResultsAndAnswer(
-            search_results=answered_results,
+        answered_results = StudentSearchResultsAndAnswer(
+            search_results=answers,
             k=answer_obj.k
         )
 
         save_path = Path(save_directory)
         save_path.mkdir(parents=True, exist_ok=True)
-        output_file = save_path / answer_file.name
 
-        with open(output_file, "w") as out_file:
-            out_file.write(final_output.model_dump_json(indent=4))
+        generator.save_answer(save_path, answer_file, answered_results)
 
-        print(f"Processed {len(answered_results)} of "
-              f"{len(answer_obj.search_results)} questions")
-        print(f"Saved student_search_results_and_answer to {output_file}")
 
     # def evaluate(
     #         self,

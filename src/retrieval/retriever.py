@@ -1,9 +1,9 @@
 import bm25s
-import hashlib
 import Stemmer
+from src.utils.security import save_hash_file, verify_file_hash
 from pathlib import Path
 from pydantic import TypeAdapter
-from src.exeptions import RetrieverError
+from src.exceptions import RetrieverError, FileAccessError
 from src.model.model_indexing import ChunkSource
 from src.model.model_retrivial import (
     UnansweredQuestion,
@@ -18,44 +18,6 @@ class Retriever:
         self.retriever = bm25s.BM25()
         self.chunks: list[ChunkSource] = []
 
-    def _verify_file_hash(self, target_file: Path) -> None:
-        """Verifies if the current file hash matches the stored hash."""
-        hash_path = target_file.with_suffix(target_file.suffix + ".hash")
-        if not hash_path.exists():
-            raise RetrieverError(
-                f"Signature file missing for {target_file.name}")
-
-        with open(hash_path, "r") as f:
-            stored_hash = f.read().strip()
-
-        if self._calculate_file_hash(target_file) != stored_hash:
-            raise RetrieverError(
-                f"Alert: {target_file.name} has been changed!")
-
-    @staticmethod
-    def _calculate_file_hash(file_path: Path) -> str:
-        """Calculates SHA-256 hash."""
-        sha256_hash = hashlib.sha256()
-        try:
-            with open(file_path, "rb") as f:
-                for byte_block in iter(lambda: f.read(4096), b""):
-                    sha256_hash.update(byte_block)
-            return sha256_hash.hexdigest()
-        except OSError as e:
-            raise RetrieverError(
-                f"Could not read file for hashing: {file_path}") from e
-
-    def _save_hash_file(self, target_file: Path) -> None:
-        """Generates a .hash file next to the target file."""
-        hash_path = target_file.with_suffix(target_file.suffix + ".hash")
-        file_hash = self._calculate_file_hash(target_file)
-        try:
-            with open(hash_path, "w") as f:
-                f.write(file_hash)
-        except OSError as e:
-            raise RetrieverError(
-                f"Could not save hash for {target_file.name}") from e
-
     def save_index(self) -> None:
         try:
             index_dir = Path("./data/processed/bm25_index")
@@ -63,7 +25,7 @@ class Retriever:
             self.retriever.save(str(index_dir))
             for file in index_dir.iterdir():
                 if file.is_file():
-                    self._save_hash_file(file)
+                    save_hash_file(file)
 
             chunks_dir = Path("./data/processed/chunks")
             chunks_dir.mkdir(parents=True, exist_ok=True)
@@ -73,9 +35,9 @@ class Retriever:
 
             with open(chunks_dir / "chunk_mapping.json", "wb") as f:
                 f.write(json_data)
-            self._save_hash_file(chunk_mapping_path)
+            save_hash_file(chunk_mapping_path)
 
-        except OSError as e:
+        except (OSError, FileAccessError) as e:
             error_msg = f"the file could not be save {str(e)}"
             raise RetrieverError(error_msg) from e
 
@@ -89,12 +51,12 @@ class Retriever:
                 "Index directory does not exist. Please run indexing first.")
         for file in index_dir.iterdir():
             if file.is_file() and not file.name.endswith(".hash"):
-                self._verify_file_hash(file)
+                verify_file_hash(file)
         if not chunk_mapping_path.exists():
             raise RetrieverError(
                 f"Chunk mapping file not found at {chunk_mapping_path}")
 
-        self._verify_file_hash(chunk_mapping_path)
+        verify_file_hash(chunk_mapping_path)
 
         try:
             self.retriever = bm25s.BM25.load(str(index_dir))
@@ -141,13 +103,13 @@ class Retriever:
         file_name: str = dataset_file.name
         output_path = save_file / file_name
         try:
-            with open(output_path, "w") as out_file:
-                out_file.write(search_results.model_dump_json(indent=4))
-            self._save_hash_file(output_path)
+            with open(output_path, "w") as output_file:
+                output_file.write(search_results.model_dump_json(indent=4))
+            save_hash_file(output_path)
             print(f"Dataset search complete. Results saved to {output_path}")
         except OSError as e:
             raise RetrieverError(
-                f"Dataset at {out_file} could not save.") from e
+                f"Dataset at {output_file} could not save.") from e
 
     def bulk_search(
             self,

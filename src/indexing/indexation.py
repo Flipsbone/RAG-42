@@ -6,7 +6,7 @@ from src.indexing.chunking import (
     MarkdownChunker)
 from src.model.model_indexing import ChunkSource
 from src.retrieval.retriever import Retriever
-from src.exeptions import IndexationError
+from src.exceptions import IndexationError
 
 
 class Indexation:

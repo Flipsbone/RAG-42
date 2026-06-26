@@ -1,74 +1,66 @@
-from typing import Any, cast
-
-from transformers import AutoTokenizer, AutoModelForCausalLM
+import ollama
+from pathlib import Path
+from src.utils.security import save_hash_file
 from src.model.model_retrivial import (
     ChunkSource)
-import torch
+from src.exceptions import GeneratorError
+from src.model.model_generation import (
+    StudentSearchResultsAndAnswer)
 
 
 class Generator:
     def __init__(
             self,
-            model_name: str = "Qwen/Qwen3-0.6B",
+            model_name: str = "qwen3:0.6b",
             max_context_length: int = 2000) -> None:
 
         self._model_name = model_name
-        self.max_token: int = max_context_length
-        self.max_new_token: int = 64
+        self.max_char_length: int = max_context_length
         self.temperature: float = 0.1
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self._model_name,
-            trust_remote_code=True)
-        model = AutoModelForCausalLM.from_pretrained(
-            self._model_name,
-            device_map="auto",
-            torch_dtype="auto",
-            trust_remote_code=True
+        self.client: ollama.Client = ollama.Client(
+            host='http://127.0.0.1:11434'
         )
-        self.model = cast(Any, model)
-        self.model.eval()
+
+    @staticmethod
+    def save_answer(
+            save_path: Path,
+            answer_file: Path,
+            answered_results: StudentSearchResultsAndAnswer) -> None:
+
+        output_path = save_path / answer_file.name
+
+        try: 
+            with open(output_path, "w") as output_file:
+                output_file.write(answered_results.model_dump_json(indent=4))
+
+            print(f"Processed {len(answered_results.search_results)} of "
+                f"{len(answered_results.search_results)} questions")
+            print(f"Saved student_search_results_and_answer to {output_file}")
+            save_hash_file(output_path)
+        except OSError as e:
+            raise GeneratorError(
+                f"Dataset at {output_file} could not save.") from e
 
     def _stitch_context(self, chunks_source: list[ChunkSource]) -> str:
-        context_parts = []
-
+        context_parts: list[str] = []
         for source in chunks_source:
             header = f"--- Snippet from {source.file_path} ---"
-            context_parts.append(f"{header}{source.text}\n")
+            context_parts.append(f"{header}\n{source.text}\n")
 
         full_context = "\n".join(context_parts)
+        if len(full_context) > self.max_char_length:
+            full_context = full_context[:self.max_char_length:]
 
-        tokens = self.tokenizer.encode(full_context)
-        if len(tokens) > self.max_token:
-            full_context = (
-                self.tokenizer.decode(tokens[:self.max_token]))  # type: ignore
         return full_context
 
-    def _build_prompt(self, query: str, context: str) -> str:
+    @staticmethod
+    def _build_prompt() -> str:
         system_instruction = (
-            "You are an expert technical assistant."
-            "Your task is to answer the user's question "
-            "based STRICTLY on the provided context."
-            "If the context does not contain the answer, "
-            "you must reply exactly with 'Information not found in context'."
-            "Do not hallucinate or use external knowledge."
+            "Answer the question using ONLY the provided Context. "
+            "If the answer is not in the Context,"
+            "say 'Information not found in context'."
         )
-        prompt = (
-            f"<|im_start|>system\n{system_instruction}<|im_end|>\n"
-            f"<|im_start|>user\nContext:\n{context}\n\nQuestion: "
-            f"{query}<|im_end|>\n"
-            f"<|im_start|>assistant\n"
-        )
-        return prompt
-
-    def _parse_response(self, raw_output: str) -> str:
-        delimiter = "<|im_start|>assistant\n"
-        if delimiter in raw_output:
-            answer = raw_output.split(delimiter)[-1]
-        else:
-            answer = raw_output
-        answer = answer.replace("<|im_end|>", "").strip()
-
-        return answer
+        return system_instruction
 
     def generate_answer(
             self,
@@ -77,30 +69,31 @@ class Generator:
 
         if not chunks_source:
             return "Information not found in context"
-
         try:
             context = self._stitch_context(chunks_source)
-            prompt = self._build_prompt(query, context)
+            prompt = self._build_prompt()
 
-            inputs = (
-                self.tokenizer(
-                    prompt, return_tensors="pt").to(self.model.device))
-            with torch.inference_mode():
-                model = cast(Any, self.model)
-                outputs = model.generate(
-                    **inputs,
-                    max_new_tokens=self.max_new_token,
-                    do_sample=False,
-                    pad_token_id=self.tokenizer.eos_token_id
-                )
-            generated_tokens = outputs[0][inputs.input_ids.shape[1]:]
-            decoded_answer = self.tokenizer.decode(
-                generated_tokens, skip_special_tokens=True)
-            raw_answer: str
-            if isinstance(decoded_answer, str):
-                raw_answer = decoded_answer
-            else:
-                raw_answer = decoded_answer[0]
-            return self._parse_response(raw_answer)
-        except Exception:
-            return "Information not found in context"
+            user_content = (
+                f"Context:\n{context}\n\n"
+                f"Question: {query}"
+            )
+
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": user_content},
+            ]
+
+            response = self.client.chat(
+                model=self._model_name,
+                messages=messages,
+                think=False,
+                options={
+                    "temperature": self.temperature,
+                    "num_threads": 4,
+                    },
+            )
+            answer = response["message"]["content"].strip()
+
+            return answer
+        except Exception as e:
+            raise GeneratorError(f"{e} \nDo ollama serve inside terminal ")
