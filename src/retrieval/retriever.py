@@ -37,6 +37,9 @@ class Retriever:
                 f.write(json_data)
             save_hash_file(chunk_mapping_path)
 
+            print("Ingestion complete! Indices saved under "
+                  f"{chunk_mapping_path}")
+
         except (OSError, FileAccessError) as e:
             error_msg = f"the file could not be save {str(e)}"
             raise RetrieverError(error_msg) from e

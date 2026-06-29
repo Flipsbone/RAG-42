@@ -15,48 +15,39 @@ This phase covers the retrieval path built on top of the BM25 index from Phase 2
 ## Step 1: Data Models & Validation Setup
 The retrieval models are defined in `src/model/model_retrivial.py`.
 
-* `UnansweredQuestion` stores a generated `question_id` plus the question string.
+* `UnansweredQuestion` stores `question_id` and the question string.
 * `AnsweredQuestion` extends `UnansweredQuestion` with `sources` and `answer`.
-* `RagDataset` wraps a list of answered or unanswered questions.
+* `RagDataset` wraps answered and unanswered questions.
 * `MinimalSearchResults` stores `question_id`, `question_str`, and `retrieved_sources`.
-* `StudentSearchResults` stores the list of search results plus the `k` value used.
-* `TypeAdapter` and `model_validate_json()` are used for JSON parsing and serialization in the CLI and retriever flow.
+* `StudentSearchResults` stores the batch results plus `k`.
 
----
+## Loading the Index
+`Retriever.load_index()` restores the retrieval state from disk.
 
-## Step 2: Single Query Retrieval Logic (`search`)
-Single-query retrieval is handled by `Retriever.load_index()` and `Retriever.bulk_search()`.
+* The BM25 index is loaded from `./data/processed/bm25_index`.
+* The chunk mapping is loaded from `./data/processed/chunks/chunk_mapping.json`.
+* Saved files are verified with the hash helpers before loading.
+* The chunk JSON is validated back into `list[ChunkSource]`.
 
-* `load_index()` reloads the BM25 model from `./data/processed/bm25_index`.
-* The same method reads `./data/processed/chunks/chunk_mapping.json` and validates it into `list[ChunkSource]`.
-* `_format_text()` currently returns the input unchanged.
-* `_tokenizing()` applies the same lowercase, stopword, stemmer, and `return_ids=True` configuration used during indexing.
-* `bulk_search()` can then run `self.retriever.retrieve()` on the tokenized query and map doc ids back to the stored chunk list.
+## Query Handling
+`Retriever.bulk_search()` is the main retrieval entry point.
 
----
+* It rejects `k < 1` with `RetrieverError`.
+* It extracts the raw question strings from the input questions.
+* It tokenizes them with `bm25s.tokenize(..., lower=True, stopwords="en", stemmer=self._stemmer, return_ids=True, show_progress=True)`.
+* It calls `self.retriever.retrieve(queries_tokens, k=k)`.
+* Returned document ids are converted to `int` and used to index `self.chunks`.
+* Each query becomes a `MinimalSearchResults` entry in `StudentSearchResults`.
 
-## Step 3: Batch Processing (`search_dataset`)
-Batch retrieval also funnels through `Retriever.bulk_search(self, queries: list[UnansweredQuestion], k: int) -> StudentSearchResults`.
+## CLI Integration
+`RagCLI` exposes retrieval through Python Fire.
 
-* The method validates that `k` is greater than zero.
-* Incoming questions are formatted with `_format_text()` and tokenized with `_tokenizing()`.
-* `self.retriever.retrieve(queries_tokens, k=k)` returns document ids for each query.
-* The returned ids are cast with `int(doc_idx)` and used to index into `self.chunks`.
-* Each query is wrapped into a `MinimalSearchResults` object and collected into `StudentSearchResults`.
+* `search()` creates an `UnansweredQuestion`, loads the index, runs `bulk_search()`, and prints JSON.
+* `search_dataset()` loads a `RagDataset`, runs batch retrieval, and saves the results to the requested directory.
+* `answer()` consumes the retrieval output for the generation phase.
+* The CLI entry point is `fire.Fire(RagCLI)` in [src/__main__.py](../src/__main__.py).
 
----
+## Notes
+The retrieval layer does not implement its own recall metric. Evaluation is handled separately by [src/evaluate/evaluation.py](../src/evaluate/evaluation.py).
 
-## Step 4: CLI Integration (Python Fire)
-`RagCLI` exposes the retrieval workflow through the command line.
 
-* `search()` creates an `UnansweredQuestion`, loads the index, runs `bulk_search()`, and prints `model_dump_json(indent=4)`.
-* `search_dataset()` loads a `RagDataset`, loads the index once, and writes the aggregated search results to the requested output directory.
-* `answer()` currently loads a `StudentSearchResults` file for the next phase of the pipeline.
-* The CLI uses `fire.Fire(RagCLI)` in `src/__main__.py`.
-
-## Step 5: Optimization & Recall Checking
-This phase does not currently include a baked-in recall evaluator, but the retrieval code is structured so that the output can be validated externally.
-
-* Verify that the chunk indices still map to the original raw text ranges.
-* Run the project evaluation flow against the answered dataset after indexing.
-* If retrieval quality is low, adjust Phase 2 chunking or tokenization before changing the retrieval mapping logic.

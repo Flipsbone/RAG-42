@@ -1,7 +1,7 @@
 import uuid
 from typing import Sequence
 from pydantic import BaseModel, Field
-from src.model.model_indexing import ChunkSource
+from src.model.model_indexing import ChunkSource, MinimalSource
 
 
 class UnansweredQuestion(BaseModel):
@@ -10,7 +10,7 @@ class UnansweredQuestion(BaseModel):
 
 
 class AnsweredQuestion(UnansweredQuestion):
-    sources: list[ChunkSource]
+    sources: list[MinimalSource]
     answer: str
 
 

@@ -29,3 +29,10 @@ class GeneratorError(Exception):
     All errors specific append inside Generate
     """
     pass
+
+
+class EvaluatError(Exception):
+    """
+    All errors specific append inside Generate
+    """
+    pass

@@ -3,9 +3,9 @@ MAIN = -m src
 SRC = src/
 INDEX = index --max_chunk_size=2000 --target_dir=data/raw/vllm-0.10.1
 SEARCH = search --query="What are the default values for FP8_MIN and FP8_MAX constants in vLLM's triton_flash_attention module?" --k=1
-# SEARCH_D = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=1
-SEARCH_D = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_code_public.json --save_directory data/output/search_results --k=1
-EVALUATE = evaluate --student_answer_path data/output/search_results/dataset_docs_public.json --dataset_path data/datasets/AnsweredQuestions/dataset_docs_public.json --k=1 --max_context_length=2000
+# SEARCH_D = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=5
+SEARCH_D = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_code_public.json --save_directory data/output/search_results --k=5
+EVALUATE = evaluate --student_search_results_path data/output/search_results/dataset_code_public.json --dataset_path datasets_public/public/AnsweredQuestions/dataset_code_public.json --k 5 --max_context_length 2000
 ANSWER = answer --query="my question is" --k=1
 # ANSWER_DATASET = answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer
 ANSWER_DATASET = answer_dataset --student_search_results_path data/output/search_results/dataset_code_public.json --save_directory data/output/search_results_and_answer
@@ -40,7 +40,7 @@ search_dataset: install
 
 evaluate: install
 	@echo "Running the program with moulinette..."
-	$(PYTHON) -m moulinette $(EVALUATE)
+	$(PYTHON) $(MAIN) $(EVALUATE)
 
 answer: install
 	@echo "Running the program with answer..."
