@@ -71,37 +71,20 @@ Read and process all files from the VLLM repository\
 ### 2.4 Wrap it in a CLI
 
 
+# Start README Notes
 
+This workspace contains a local RAG pipeline implemented in src/.
 
-LANGCHAINE: 
-from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
-from typing import Protocol
-from src.indexing.model_indexation import ChunkSource
+## Main Commands
+* index builds the BM25 index from .py and .md sources.
+* search retrieves top-k snippets for a single query.
+* search_dataset runs retrieval for a batch of unanswered questions.
+* answer combines retrieval with Ollama generation for one query.
+* answer_dataset generates answers for a saved search-results dataset.
+* evaluate compares generated retrieval output against the answered dataset.
 
-class PythonChunker:
-    def chunk(self, text: str, file_path: str, max_chunk_size: int) -> list[ChunkSource]:
-        # Tell LangChain this is Python code
-        python_splitter = RecursiveCharacterTextSplitter.from_language(
-            language=Language.PYTHON,
-            chunk_size=max_chunk_size,
-            chunk_overlap=0 # Adjust if you want overlap
-        )
-
-        langchain_chunks = python_splitter.create_documents([text])
-        
-        chunks: list[ChunkSource] = []
-        current_start_idx = 0
-        
-        for doc in langchain_chunks:
-            chunk_text = doc.page_content
-            chunks.append(
-                ChunkSource(
-                    file_path=file_path,
-                    first_character_index=current_start_idx,
-                    last_character_index=current_start_idx + len(chunk_text),
-                    text=chunk_text
-                )
-            )
-            current_start_idx += len(chunk_text)
-
-        return chunks
+## Implementation Notes
+* Chunking is handled by AST-based Python chunking and Markdown token-based chunking.
+* Retrieval uses bm25s with hashed index files under data/processed/bm25_index.
+* Generation uses ollama.Client with the default model qwen3:0.6b.
+* CLI entry points are defined in src/cli/command_line_interface.py and exposed through src/__main__.py.

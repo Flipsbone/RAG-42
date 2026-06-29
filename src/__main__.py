@@ -19,6 +19,9 @@ def main() -> int:
     except error.GeneratorError as e:
         print(f"Generator Error: {e}", file=sys.stderr)
         sys.exit(1)
+    except error.EvaluatError as e:
+        print(f"Generator Error: {e}", file=sys.stderr)
+        sys.exit(1)
     except PermissionError as e:
         print(f"Permission Error: {e}", file=sys.stderr)
         sys.exit(1)

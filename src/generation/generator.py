@@ -29,12 +29,12 @@ class Generator:
 
         output_path = save_path / answer_file.name
 
-        try: 
+        try:
             with open(output_path, "w") as output_file:
                 output_file.write(answered_results.model_dump_json(indent=4))
 
             print(f"Processed {len(answered_results.search_results)} of "
-                f"{len(answered_results.search_results)} questions")
+                  f"{len(answered_results.search_results)} questions")
             print(f"Saved student_search_results_and_answer to {output_file}")
             save_hash_file(output_path)
         except OSError as e:
