@@ -62,6 +62,37 @@ class Generator:
         )
         return system_instruction
 
+    @staticmethod
+    def _build_prompt_question() -> str:
+        system_instruction = (
+            "Generate 3-5 technical synonyms for the query. "
+            "Output ONLY space-separated keywords. "
+            "No formatting, lists, or conversational text."
+        )
+        return system_instruction
+
+    def generate_question(self, query: str) -> str:
+        prompt = self._build_prompt_question()
+        messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": query},
+            ]
+        try:
+            response = self.client.chat(
+                model=self._model_name,
+                messages=messages,
+                think=False,
+                options={
+                    "temperature": self.temperature,
+                    "num_threads": 8,
+                    },
+            )
+            answer = response["message"]["content"].strip()
+
+            return answer
+        except Exception as e:
+            raise GeneratorError(f"{e} \nDo ollama serve inside terminal ")
+
     def generate_answer(
             self,
             query: str,

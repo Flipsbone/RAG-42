@@ -24,3 +24,17 @@ This project implements a local BM25-based RAG pipeline over the extracted vLLM 
 
 ## CLI Entry Point
 `fire.Fire(RagCLI)` is executed from `src/__main__.py`, so each public method on `RagCLI` becomes a command directly.
+
+
+
+add good cut into chunk code == 21% -> 34%
+add good cut into chunk document == 48% -> 55%
+
+creation 2 index chunk code == 34% -> 31%
+creation 2 index chunk doc == 55% -> 41%
+
+add path into chunk == 34% -> 45%
+add path into chunk == 55% -> 58% 
+
+add expend_query with llm  into chunk == 45% -> 47%
+add expend_query with llm == 58% -> 62% 

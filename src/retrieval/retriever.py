@@ -1,9 +1,11 @@
 import bm25s
 import Stemmer
+from tqdm import tqdm
 from src.utils.security import save_hash_file, verify_file_hash
 from pathlib import Path
 from pydantic import TypeAdapter
-from src.exceptions import RetrieverError, FileAccessError
+from src.generation.generator import Generator
+from src.exceptions import RetrieverError, FileAccessError, GeneratorError
 from src.model.model_indexing import ChunkSource
 from src.model.model_retrivial import (
     UnansweredQuestion,
@@ -18,6 +20,8 @@ class Retriever:
         self.retriever = bm25s.BM25()
         self.chunks: list[ChunkSource] = []
         self._query_cache: dict[str, list[ChunkSource]] = {}
+        self.expanded_questions: list[str] = []
+        self.generator = Generator()
 
     def save_index(self) -> None:
         try:
@@ -151,6 +155,14 @@ class Retriever:
             query_chunks.append(self.chunks[clean_id])
         return query_chunks
 
+    def _expand_query(self, question: str) -> None:
+        try:
+            expanded_terms = self.generator.generate_question(question)
+            combined_query = f"{question} {expanded_terms}"
+            self.expanded_questions.append(combined_query)
+        except GeneratorError as e:
+            print(f"Warning: Query expansion failed. Error: {e}")
+
     def _execute_bm25_search(
             self,
             uncached_queries: list[UnansweredQuestion],
@@ -161,7 +173,10 @@ class Retriever:
         if not uncached_questions:
             return new_results
 
-        queries_tokens = self._tokenizing(uncached_questions)
+        for new_question in tqdm(
+                uncached_questions, desc="Expanding queries via LLM"):
+            self._expand_query(new_question)
+        queries_tokens = self._tokenizing(self.expanded_questions)
         docs_idx, _scores = self.retriever.retrieve(queries_tokens, k=k)
 
         for query, query_indices in zip(uncached_queries, docs_idx):
@@ -190,7 +205,6 @@ class Retriever:
 
         for query in queries:
             if query.question in self._query_cache:
-                print("Ok")
                 cached_chunks = self._query_cache[query.question]
                 limited_cached_chunks = cached_chunks[:k]
                 all_results.append(MinimalSearchResults(
