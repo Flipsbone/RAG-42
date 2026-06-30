@@ -9,10 +9,18 @@ from src.model.model_generation import (
 
 
 class Generator:
+    """Generate questions and answers using an Ollama chat model."""
+
     def __init__(
             self,
             model_name: str = "qwen3:0.6b",
             max_context_length: int = 2000) -> None:
+        """Initialize the model client and generation settings.
+
+        Args:
+            model_name: The Ollama model to use for generation.
+            max_context_length: The maximum context length allowed in prompts.
+        """
 
         self._model_name = model_name
         self.max_char_length: int = max_context_length
@@ -26,6 +34,19 @@ class Generator:
             save_path: Path,
             answer_file: Path,
             answered_results: StudentSearchResultsAndAnswer) -> None:
+        """Persist generated answers and save a companion hash file.
+
+        Args:
+            save_path: Directory where the answer file should be written.
+            answer_file: The source filename used for the output name.
+            answered_results: The answers to serialize.
+
+        Returns:
+            None.
+
+        Raises:
+            GeneratorError: If the answer file cannot be written.
+        """
 
         output_path = save_path / answer_file.name
 
@@ -42,6 +63,14 @@ class Generator:
                 f"Dataset at {output_file} could not save.") from e
 
     def _stitch_context(self, chunks_source: list[ChunkSource]) -> str:
+        """Join retrieved chunks into a single prompt context string.
+
+        Args:
+            chunks_source: The retrieved chunks to stitch together.
+
+        Returns:
+            The formatted prompt context.
+        """
         context_parts: list[str] = []
         for source in chunks_source:
             header = f"--- Snippet from {source.file_path} ---"
@@ -72,6 +101,17 @@ class Generator:
         return system_instruction
 
     def generate_question(self, query: str) -> str:
+        """Expand a query into related technical synonyms.
+
+        Args:
+            query: The original user query.
+
+        Returns:
+            A space-separated synonym expansion.
+
+        Raises:
+            GeneratorError: If the model request fails.
+        """
         prompt = self._build_prompt_question()
         messages = [
                 {"role": "system", "content": prompt},
@@ -97,6 +137,19 @@ class Generator:
             self,
             query: str,
             chunks_source: list[ChunkSource]) -> str:
+        """Generate an answer from the query and retrieved context.
+
+        Args:
+            query: The question to answer.
+            chunks_source: Retrieved context chunks to ground the answer.
+
+        Returns:
+            The generated answer, or a fallback message when no context is
+            available.
+
+        Raises:
+            GeneratorError: If the model request fails.
+        """
 
         if not chunks_source:
             return "Information not found in context"

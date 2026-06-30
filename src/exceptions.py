@@ -1,17 +1,19 @@
 class IndexationError(Exception):
-    """
-    All errors specific append inside the indexer.
-    """
+    """Raised when one or more files fail during indexation."""
+
     def __init__(self, failed_logs: list[dict[str, str]]):
+        """Store the failed file logs and build the exception message.
+
+        Args:
+            failed_logs: A list of file/error mappings collected during
+                indexation.
+        """
         self.failed_logs = failed_logs
         super().__init__(f"{len(failed_logs)} files failed during indexation.")
 
 
 class RetrieverError(Exception):
-    """
-    All errors specific append inside the retriever.
-    """
-    pass
+    """Raised when retrieval or index loading fails."""
 
 
 class FileSecurityError(Exception):
@@ -25,14 +27,10 @@ class FileAccessError(Exception):
 
 
 class GeneratorError(Exception):
-    """
-    All errors specific append inside Generate
-    """
+    """Raised when answer or question generation fails."""
     pass
 
 
 class EvaluatError(Exception):
-    """
-    All errors specific append inside Generate
-    """
+    """Raised when evaluation of retrieved results fails."""
     pass

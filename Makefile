@@ -11,11 +11,11 @@ ANSWER = answer --query="my question is" --k=1
 ANSWER_DATASET_DOC = answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer
 ANSWER_DATASET_CODE = answer_dataset --student_search_results_path data/output/search_results/dataset_code_public.json --save_directory data/output/search_results_and_answer
 EVAL_SCRIPT := ./moulinette_pkg/moulinette-ubuntu 
-# RESULTS := data/output/search_results/dataset_docs_public.json
-# DATASET := datasets_public/public/AnsweredQuestions/dataset_docs_public.json
-RESULTS := data/output/search_results/dataset_code_public.json
-DATASET := datasets_public/public/AnsweredQuestions/dataset_code_public.json
-K := 1
+RESULTS := data/output/search_results/dataset_docs_public.json
+DATASET := datasets_public/public/AnsweredQuestions/dataset_docs_public.json
+# RESULTS := data/output/search_results/dataset_code_public.json
+# DATASET := datasets_public/public/AnsweredQuestions/dataset_code_public.json
+K := 5
 
 all: install
 
@@ -37,7 +37,7 @@ search: install
 
 search_dataset: install
 	@echo "Running the program with function search..."
-	$(PYTHON) $(MAIN) $(SEARCH_DCODE)
+	$(PYTHON) $(MAIN) $(SEARCH_DDOC)
 
 evaluate: install
 	@echo "Running the program with moulinette..."

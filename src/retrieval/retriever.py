@@ -15,7 +15,10 @@ from src.model.model_retrivial import (
 
 
 class Retriever:
+    """Build, persist, load, and query a BM25 retrieval index."""
+
     def __init__(self) -> None:
+        """Initialize the BM25 retriever and related caches."""
         self._stemmer = Stemmer.Stemmer("english")
         self.retriever = bm25s.BM25()
         self.chunks: list[ChunkSource] = []
@@ -105,6 +108,14 @@ class Retriever:
             raise RetrieverError(error_msg) from e
 
     def _tokenizing(self, text_data: list[str]) -> list[str] | list[int]:
+        """Tokenize text for BM25 indexing or retrieval.
+
+        Args:
+            text_data: The input texts to tokenize.
+
+        Returns:
+            The tokenized representation expected by BM25S.
+        """
         text_data = bm25s.tokenize(
             texts=text_data,
             lower=True,
@@ -118,6 +129,14 @@ class Retriever:
     def build_index(
             self,
             chunks: list[ChunkSource]) -> None:
+        """Build the BM25 index from chunk sources.
+
+        Args:
+            chunks: The chunks to index.
+
+        Returns:
+            None.
+        """
 
         self.chunks = chunks
         expanded_corpus: list[str] = []
@@ -133,6 +152,20 @@ class Retriever:
             dataset_file: Path,
             save_file: Path,
             search_results: StudentSearchResults) -> None:
+        """Save search results to disk and hash the output.
+
+        Args:
+            nb_queries: The number of processed queries.
+            dataset_file: The source dataset file.
+            save_file: The directory where results should be saved.
+            search_results: The search results to serialize.
+
+        Returns:
+            None.
+
+        Raises:
+            RetrieverError: If the results cannot be written.
+        """
 
         print(f"Executing bulk search for {nb_queries} queries...")
         file_name: str = dataset_file.name
@@ -149,6 +182,14 @@ class Retriever:
     def _get_chunks_from_indices(
             self,
             query_indices: list[int | str]) -> list[ChunkSource]:
+        """Resolve BM25 document indices back to chunk objects.
+
+        Args:
+            query_indices: The retrieved document indices.
+
+        Returns:
+            The corresponding chunk objects.
+        """
         query_chunks: list[ChunkSource] = []
         for doc_idx in query_indices:
             clean_id = int(doc_idx)
@@ -168,6 +209,16 @@ class Retriever:
             uncached_queries: list[UnansweredQuestion],
             uncached_questions: list[str],
             k: int) -> list[MinimalSearchResults]:
+        """Run BM25 retrieval for queries not present in the cache.
+
+        Args:
+            uncached_queries: The unanswered query objects to search.
+            uncached_questions: The raw question strings for expansion.
+            k: The number of chunks to retrieve per query.
+
+        Returns:
+            Newly computed search results.
+        """
         new_results: list[MinimalSearchResults] = []
 
         if not uncached_questions:
@@ -194,6 +245,18 @@ class Retriever:
             self,
             queries: list[UnansweredQuestion],
             k: int) -> StudentSearchResults:
+        """Search for multiple questions and return structured results.
+
+        Args:
+            queries: The unanswered questions to retrieve for.
+            k: The number of chunks to retrieve per query.
+
+        Returns:
+            The structured search results for all queries.
+
+        Raises:
+            RetrieverError: If ``k`` is invalid.
+        """
 
         if k < 1:
             raise RetrieverError("k must be > 0")

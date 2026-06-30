@@ -5,21 +5,36 @@ from src.model.model_indexing import ChunkSource, NodeContext
 
 
 class ChunkerStrategy(Protocol):
+    """Protocol for text chunking strategies."""
+
     def chunk(
             self,
             text: str,
             file_path: str,
             max_chunk_size: int) -> list[ChunkSource]:
-        """All chunkers must implement this method and
-        return a list of ChunkSource objects."""
+        """Split text into chunk sources.
+
+        Args:
+            text: The source text to chunk.
+            file_path: The file path associated with the text.
+            max_chunk_size: The maximum size of each chunk.
+
+        Returns:
+            A list of chunk metadata and content objects.
+        """
         ...
 
 
 class ChunkBuilder:
-    """Manages the global state and assembly of text chunks
-    while strictly respecting the maximum allowed size."""
+    """Assemble text chunks while preserving chunk boundaries and metadata."""
 
     def __init__(self, file_path: str, max_chunk_size: int):
+        """Initialize the chunk assembly state.
+
+        Args:
+            file_path: The file path associated with generated chunks.
+            max_chunk_size: The maximum size allowed for each chunk.
+        """
         self.file_path = file_path
         self.max_chunk_size = max_chunk_size
         self.chunks: list[ChunkSource] = []
@@ -47,8 +62,13 @@ class ChunkBuilder:
         self._current_chunk_text = ""
 
     def process_lines(self, block_text: str) -> None:
-        """Processes a block line by line when
-        it natively exceeds the max size.
+        """Process oversized text line by line.
+
+        Args:
+            block_text: The text block to split across chunks.
+
+        Returns:
+            None.
         """
 
         for line in block_text.splitlines(keepends=True):
@@ -66,8 +86,13 @@ class ChunkBuilder:
                     self.seal_chunk()
 
     def process_segment(self, block_text: str) -> None:
-        """Evaluates and routes a text segment
-        to the accumulator or line processing.
+        """Route a text segment to the accumulator or the line splitter.
+
+        Args:
+            block_text: The text segment to process.
+
+        Returns:
+            None.
         """
         if len(self._current_chunk_text) + len(block_text) < (
                 self.max_chunk_size):
@@ -83,8 +108,14 @@ class ChunkBuilder:
         self.process_lines(block_text)
 
     def try_process_full_document(self, text: str) -> bool:
-        """Handles the fast-path for small documents.
-        Returns True if processed.
+        """Handle small documents as a single chunk.
+
+        Args:
+            text: The document text to evaluate.
+
+        Returns:
+            True if the document was stored as a single chunk; otherwise
+            False.
         """
         if len(text) < self.max_chunk_size:
             self._context_name = "Full Document"
@@ -96,7 +127,15 @@ class ChunkBuilder:
     def process_tail_and_seal(
             self, lines: list[str],
             last_line_idx: int) -> None:
-        """Processes any remaining lines and seals the final chunk."""
+        """Process any remaining lines and flush the final chunk.
+
+        Args:
+            lines: The document lines being chunked.
+            last_line_idx: The index of the last processed line.
+
+        Returns:
+            None.
+        """
         if last_line_idx < len(lines):
             remaining_text = "".join(lines[last_line_idx:])
             self.process_segment(remaining_text)
@@ -104,14 +143,23 @@ class ChunkBuilder:
 
 
 class PythonChunker:
-    """Parses Python files via AST and delegates assembly to the ChunkBuilder
-    """
+    """Chunk Python files by traversing their abstract syntax tree."""
 
     def chunk(
             self,
             text: str,
             file_path: str,
             max_chunk_size: int) -> list[ChunkSource]:
+        """Split Python source code into chunks.
+
+        Args:
+            text: The Python source code to chunk.
+            file_path: The file path associated with the source code.
+            max_chunk_size: The maximum size of each chunk.
+
+        Returns:
+            A list of chunk sources extracted from the Python file.
+        """
 
         builder = ChunkBuilder(file_path, max_chunk_size)
 
@@ -168,15 +216,23 @@ class PythonChunker:
 
 
 class MarkdownChunker:
-    """Parses Markdown files via markdown-it-py
-        and delegates assembly to the ChunkBuilder.
-    """
+    """Chunk Markdown files using Markdown-It token boundaries."""
 
     def chunk(
             self,
             text: str,
             file_path: str,
             max_chunk_size: int) -> list[ChunkSource]:
+        """Split Markdown content into chunks.
+
+        Args:
+            text: The Markdown text to chunk.
+            file_path: The file path associated with the text.
+            max_chunk_size: The maximum size of each chunk.
+
+        Returns:
+            A list of chunk sources extracted from the Markdown file.
+        """
 
         builder = ChunkBuilder(file_path, max_chunk_size)
 
@@ -212,12 +268,23 @@ class MarkdownChunker:
 
 
 class TextChunker:
+    """Fallback chunker for plain text and structured text files."""
 
     def chunk(
             self,
             text: str,
             file_path: str,
             max_chunk_size: int) -> list[ChunkSource]:
+        """Split plain text into chunks.
+
+        Args:
+            text: The text to chunk.
+            file_path: The file path associated with the text.
+            max_chunk_size: The maximum size of each chunk.
+
+        Returns:
+            A list of chunk sources extracted from the text file.
+        """
 
         builder = ChunkBuilder(file_path, max_chunk_size)
         builder._context_name = "Fallback Text"

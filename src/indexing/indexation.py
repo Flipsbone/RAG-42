@@ -11,17 +11,22 @@ from src.exceptions import IndexationError
 
 
 class Indexation:
+    """Discover supported files, chunk them, and build the retrieval index."""
+
     def __init__(self, data_dir: Path, max_chunk_size: int = 2000):
+        """Initialize an indexation run.
+
+        Args:
+            data_dir: The root directory containing input files.
+            max_chunk_size: The maximum size allowed for each chunk.
+        """
         self.data_dir = data_dir
         self.max_chunk_size = max_chunk_size
         self.chunkers: dict[str, ChunkerStrategy] = {
             ".py": PythonChunker(),
             ".md": MarkdownChunker(),
             ".txt": TextChunker(),
-            ".inc.md": TextChunker(),
-            ".json": TextChunker(),
-            ".yaml": TextChunker(),
-            ".yml": TextChunker(),
+            ".inc.md": TextChunker()
         }
         self.target_files: list[Path] = []
         self._discover_files()
@@ -35,6 +40,14 @@ class Indexation:
             if path.suffix in self.chunkers]
 
     def processed_chunks(self) -> None:
+        """Chunk the discovered files and persist the resulting index.
+
+        Returns:
+            None.
+
+        Raises:
+            IndexationError: If one or more files fail during processing.
+        """
 
         all_processed_chunks: list[ChunkSource] = []
         failed_logs: list[dict[str, str]] = []

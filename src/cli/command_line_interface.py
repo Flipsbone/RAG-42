@@ -25,12 +25,14 @@ class RagCLI:
     def index(
             self, target_dir: str = "data/raw/vllm-0.10.1",
             max_chunk_size: int = 2000) -> None:
-        """
-        Indexes documents found in the target directory.
+        """Index documents found in the target directory.
 
         Args:
             target_dir: The folder path containing the raw documents.
             max_chunk_size: The maximum character limit for each text chunk.
+
+        Returns:
+            None.
         """
         if max_chunk_size > 2000:
             raise ValueError(
@@ -49,8 +51,11 @@ class RagCLI:
         With exactly one query.
 
         Args:
-            query: What you want to know.
-            k: The maximum result of relevant snippets to retrieve.
+            query: The question to search for.
+            k: The maximum number of snippets to retrieve.
+
+        Returns:
+            None.
         """
         retriever = Retriever()
         retriever.load_index()
@@ -66,15 +71,15 @@ class RagCLI:
                 "UnansweredQuestions/dataset_docs_public.json"),
             save_directory: str = "data/output/search_results",
             k: int = 10) -> None:
-        """
-        Process multiple questions from a JSON
-        dataset and save the search results.
+        """Process a question dataset and save the search results.
 
         Args:
-            dataset_path: Path to the input
-            JSON dataset (e.g., UnansweredQuestions).
+            dataset_path: Path to the input JSON dataset.
             save_directory: Directory where the output JSON will be saved.
             k: The maximum number of results to retrieve per question.
+
+        Returns:
+            None.
         """
         retriever = Retriever()
         retriever.load_index()
@@ -104,12 +109,14 @@ class RagCLI:
             save_file, search_results)
 
     def answer(self, query: str, k: int = 10) -> None:
-        """
-        Answer a single question using the indexed knowledge base.
+        """Answer a single question using the indexed knowledge base.
 
         Args:
             query: The question to answer.
             k: The maximum number of relevant snippets to retrieve.
+
+        Returns:
+            None.
         """
         retriever = Retriever()
         retriever.load_index()
@@ -141,14 +148,14 @@ class RagCLI:
                 "data/output/search_results/dataset_docs_public.json"),
             save_directory: str = (
                 "data/output/search_results_and_answer")) -> None:
-        """
-        Process answer from a JSON
-        search results and save the search results and answer.
+        """Generate answers from saved search results and persist them.
 
         Args:
-            student_search_results_path: Path to the input
-            JSON output (e.g., search_results).
+            student_search_results_path: Path to the input search-results JSON.
             save_directory: Directory where the output JSON will be saved.
+
+        Returns:
+            None.
         """
         answer_file: Path = Path(student_search_results_path)
         try:
@@ -202,6 +209,18 @@ class RagCLI:
                 "AnsweredQuestions/dataset_docs_public.json"),
             k: int = 10,
             max_context_length: int = 2000) -> None:
+        """Evaluate retrieved snippets against the labeled dataset.
+
+        Args:
+            student_search_results_path: Path to the student search-results
+                JSON.
+            dataset_path: Path to the labeled answered-question dataset.
+            k: The maximum number of sources considered for each question.
+            max_context_length: The maximum allowed context size.
+
+        Returns:
+            None.
+        """
 
         if max_context_length < 500:
             raise ValueError(
