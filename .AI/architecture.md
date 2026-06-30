@@ -37,4 +37,7 @@ add path into chunk == 34% -> 45%
 add path into chunk == 55% -> 58% 
 
 add expend_query with llm  into chunk == 45% -> 47%
-add expend_query with llm == 58% -> 62% 
+add expend_query with llm == 58% -> 62%
+
+add expend file research == 47% -> 46%
+add expend file research == 62% -> 61%  but retrieve with k=5 better score 86 compare to 82

@@ -1,7 +1,7 @@
 import ollama
 from pathlib import Path
 from src.utils.security import save_hash_file
-from src.model.model_retrivial import (
+from src.model.model_indexing import (
     ChunkSource)
 from src.exceptions import GeneratorError
 from src.model.model_generation import (
@@ -87,7 +87,7 @@ class Generator:
                     "num_threads": 8,
                     },
             )
-            answer = response["message"]["content"].strip()
+            answer = str(response["message"]["content"].strip())
 
             return answer
         except Exception as e:
@@ -123,7 +123,7 @@ class Generator:
                     "num_threads": 4,
                     },
             )
-            answer = response["message"]["content"].strip()
+            answer = str(response["message"]["content"].strip())
 
             return answer
         except Exception as e:

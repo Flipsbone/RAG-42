@@ -134,7 +134,11 @@ class PythonChunker:
             node = item.node
             parent_class_name = item.class_name
             start_line_idx = last_line_idx
-            end_line_idx: int | None = node.end_lineno or start_line_idx
+            end_line_idx: int = (
+                node.end_lineno
+                if node.end_lineno is not None
+                else start_line_idx
+            )
             block_text = "".join(lines[start_line_idx:end_line_idx])
             match node:
                 case ast.FunctionDef(name=func_name) | (
@@ -203,5 +207,25 @@ class MarkdownChunker:
                 builder._context_name = f"Section: {current_header}"
 
         builder.process_tail_and_seal(lines, last_line_idx)
+
+        return builder.chunks
+
+
+class TextChunker:
+
+    def chunk(
+            self,
+            text: str,
+            file_path: str,
+            max_chunk_size: int) -> list[ChunkSource]:
+
+        builder = ChunkBuilder(file_path, max_chunk_size)
+        builder._context_name = "Fallback Text"
+
+        if builder.try_process_full_document(text):
+            return builder.chunks
+
+        builder.process_segment(text)
+        builder.seal_chunk()
 
         return builder.chunks

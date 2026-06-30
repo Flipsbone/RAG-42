@@ -147,7 +147,7 @@ class Retriever:
                 f"Dataset at {output_file} could not save.") from e
 
     def _get_chunks_from_indices(
-            self, 
+            self,
             query_indices: list[int | str]) -> list[ChunkSource]:
         query_chunks: list[ChunkSource] = []
         for doc_idx in query_indices:

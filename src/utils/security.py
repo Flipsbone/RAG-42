@@ -31,7 +31,7 @@ def calculate_file_hash(file_path: Path) -> str:
             f"Could not read file for hashing: {file_path}") from e
 
 
-def save_hash_file( target_file: Path) -> None:
+def save_hash_file(target_file: Path) -> None:
     """Generates a .hash file next to the target file."""
     hash_path = target_file.with_suffix(target_file.suffix + ".hash")
     file_hash = calculate_file_hash(target_file)
