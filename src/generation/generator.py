@@ -86,15 +86,13 @@ class Generator:
     def _build_prompt() -> str:
         system_instruction = (
             "Answer the question using ONLY the provided Context. "
-            "If the answer is not in the Context,"
-            "say 'Information not found in context'."
         )
         return system_instruction
 
     @staticmethod
     def _build_prompt_question() -> str:
         system_instruction = (
-            "Generate 3-5 technical synonyms for the query. "
+            "Generate 3 technical synonyms , acronyms for the query. "
             "Output ONLY space-separated keywords. "
             "No formatting, lists, or conversational text."
         )
@@ -124,7 +122,7 @@ class Generator:
                 think=False,
                 options={
                     "temperature": self.temperature,
-                    "num_threads": 8,
+                    "num_threads": 4,
                     },
             )
             answer = str(response["message"]["content"].strip())

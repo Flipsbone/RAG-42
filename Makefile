@@ -7,7 +7,7 @@ SEARCH_DDOC = search_dataset --dataset_path datasets_public/public/UnansweredQue
 SEARCH_DCODE = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_code_public.json --save_directory data/output/search_results --k=5
 EVALUATE_DOC = evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k=5 --max_context_length=2000
 EVALUATE_CODE = evaluate --student_search_results_path data/output/search_results/dataset_code_public.json --dataset_path datasets_public/public/AnsweredQuestions/dataset_code_public.json --k=5 --max_context_length=2000
-ANSWER = answer --query="my question is" --k=1
+ANSWER = answer --query="How to configure OpenAI server" --k=1
 ANSWER_DATASET_DOC = answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer
 ANSWER_DATASET_CODE = answer_dataset --student_search_results_path data/output/search_results/dataset_code_public.json --save_directory data/output/search_results_and_answer
 EVAL_SCRIPT := ./moulinette_pkg/moulinette-ubuntu 

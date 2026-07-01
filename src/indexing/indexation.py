@@ -13,7 +13,7 @@ from src.exceptions import IndexationError
 class Indexation:
     """Discover supported files, chunk them, and build the retrieval index."""
 
-    def __init__(self, data_dir: Path, max_chunk_size: int = 2000):
+    def __init__(self, data_dir: Path, max_chunk_size: int):
         """Initialize an indexation run.
 
         Args:
@@ -25,8 +25,7 @@ class Indexation:
         self.chunkers: dict[str, ChunkerStrategy] = {
             ".py": PythonChunker(),
             ".md": MarkdownChunker(),
-            ".txt": TextChunker(),
-            ".inc.md": TextChunker()
+            ".txt": TextChunker()
         }
         self.target_files: list[Path] = []
         self._discover_files()

@@ -1,5 +1,6 @@
 import bm25s
 import Stemmer
+import shutil
 from tqdm import tqdm
 from src.utils.security import save_hash_file, verify_file_hash
 from pathlib import Path
@@ -29,7 +30,8 @@ class Retriever:
     def save_index(self) -> None:
         try:
             index_dir = Path("./data/processed/bm25_index")
-            index_dir.mkdir(parents=True, exist_ok=True)
+            if index_dir.exists():
+                shutil.rmtree(index_dir)
             self.retriever.save(str(index_dir))
             for file in index_dir.iterdir():
                 if file.is_file():

@@ -25,7 +25,7 @@ class RagCLI:
     def index(
             self, target_dir: str = "data/raw/vllm-0.10.1",
             max_chunk_size: int = 2000) -> None:
-        """Index documents found in the target directory.
+        """1: Index documents found in the target directory.
 
         Args:
             target_dir: The folder path containing the raw documents.
@@ -40,7 +40,7 @@ class RagCLI:
         if max_chunk_size < 1000:
             raise ValueError(
                 f"max_chunk_size : {max_chunk_size} must be > 1000"
-                "in order to have a good semantic")
+                " in order to have a good semantic")
         path = Path(target_dir)
         indexer = Indexation(path, (max_chunk_size - 1))
         indexer.processed_chunks()
@@ -57,6 +57,9 @@ class RagCLI:
         Returns:
             None.
         """
+        if query == "":
+            print("You must write something")
+            return 
         retriever = Retriever()
         retriever.load_index()
         unanswered_query: UnansweredQuestion = UnansweredQuestion(
@@ -71,7 +74,7 @@ class RagCLI:
                 "UnansweredQuestions/dataset_docs_public.json"),
             save_directory: str = "data/output/search_results",
             k: int = 10) -> None:
-        """Process a question dataset and save the search results.
+        """2: Process a question dataset and save the search results.
 
         Args:
             dataset_path: Path to the input JSON dataset.
@@ -108,7 +111,7 @@ class RagCLI:
             len(queries), dataset_file,
             save_file, search_results)
 
-    def answer(self, query: str, k: int = 10) -> None:
+    def answer(self, query: str = "", k: int = 10) -> None:
         """Answer a single question using the indexed knowledge base.
 
         Args:
@@ -118,6 +121,9 @@ class RagCLI:
         Returns:
             None.
         """
+        if query == "":
+            print("You must write something")
+            return 
         retriever = Retriever()
         retriever.load_index()
 
@@ -148,7 +154,7 @@ class RagCLI:
                 "data/output/search_results/dataset_docs_public.json"),
             save_directory: str = (
                 "data/output/search_results_and_answer")) -> None:
-        """Generate answers from saved search results and persist them.
+        """3: Generate answers from saved search results and persist them.
 
         Args:
             student_search_results_path: Path to the input search-results JSON.
@@ -209,7 +215,7 @@ class RagCLI:
                 "AnsweredQuestions/dataset_docs_public.json"),
             k: int = 10,
             max_context_length: int = 2000) -> None:
-        """Evaluate retrieved snippets against the labeled dataset.
+        """4: Evaluate retrieved snippets against the labeled dataset.
 
         Args:
             student_search_results_path: Path to the student search-results
