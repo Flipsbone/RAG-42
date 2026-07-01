@@ -24,7 +24,7 @@ class Retriever:
         self.retriever = bm25s.BM25()
         self.chunks: list[ChunkSource] = []
         self._query_cache: dict[str, list[ChunkSource]] = {}
-        self.generator = Generator()
+        self.generator: Generator | None = None
 
     def save_index(self) -> None:
         try:
@@ -199,7 +199,7 @@ class Retriever:
 
     def _expand_query(self, question: str) -> str:
         if self.generator is None:
-            return question
+            self.generator = Generator()
         try:
             expanded_terms = self.generator.generate_question(question)
             return f"{question} {expanded_terms}"
@@ -211,7 +211,8 @@ class Retriever:
             self,
             uncached_queries: list[UnansweredQuestion],
             uncached_questions: list[str],
-            k: int) -> list[MinimalSearchResults]:
+            k: int,
+            use_query_expansion: bool) -> list[MinimalSearchResults]:
         """Run BM25 retrieval for queries not present in the cache.
 
         Args:
@@ -228,9 +229,12 @@ class Retriever:
         if not uncached_questions:
             return new_results
 
-        for new_question in tqdm(
-                uncached_questions, desc="Expanding queries via LLM"):
-            expanded_questions.append(self._expand_query(new_question))
+        if use_query_expansion:
+            for new_question in tqdm(
+                    uncached_questions, desc="Expanding queries via LLM"):
+                expanded_questions.append(self._expand_query(new_question))
+        else:
+            expanded_questions = uncached_questions
         queries_tokens = self._tokenizing(expanded_questions)
         docs_idx, _scores = self.retriever.retrieve(queries_tokens, k=k)
 
@@ -248,7 +252,8 @@ class Retriever:
     def bulk_search(
             self,
             queries: list[UnansweredQuestion],
-            k: int) -> StudentSearchResults:
+            k: int,
+            use_query_expansion: bool = True) -> StudentSearchResults:
         """Search for multiple questions and return structured results.
 
         Args:
@@ -287,7 +292,8 @@ class Retriever:
             new_results = self._execute_bm25_search(
                 uncached_queries,
                 uncached_questions,
-                k
+                k,
+                use_query_expansion
             )
             all_results.extend(new_results)
             cache_updated = True

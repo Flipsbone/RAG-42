@@ -84,7 +84,7 @@ We measured and optimized `recall@k` metric (specifically evaluating the top 5 r
 ### Resultat final `recall@5`
 | Final result | Recall (Code) | Recall (Docs) | Impact & Notes |
 | :--- | :--- | :--- | :--- |
-|  | **`71%`** | **`87%`** | Using 5 or 10 sources is the most effective approach, retrieving too much information reduces the overall quality.|
+|  | **`72%`** | **`86%`** | Using 5 or 10 sources is the most effective approach, retrieving too much information reduces the overall quality.|
 
 
 ### System Performance & Bottlenecks

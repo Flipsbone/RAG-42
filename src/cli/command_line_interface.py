@@ -106,7 +106,11 @@ class RagCLI:
             for unanswered_question in unanswered_questions:
                 queries.append(unanswered_question)
 
-        search_results = retriever.bulk_search(queries, k)
+        search_results = retriever.bulk_search(
+            queries,
+            k,
+            use_query_expansion=False
+        )
         retriever.save_dataset(
             len(queries), dataset_file,
             save_file, search_results)
