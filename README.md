@@ -7,19 +7,19 @@ This project implements a local Retrieval-Augmented Generation (RAG) pipeline de
 
 ## Instructions
 **Installation & Setup:**
-This project relies on `uv` for package management and uses Python 3.10 features.
+This project relies on `uv` for package management and uses Python >=3.13 features.
 * Install dependencies via `uv`.
 * Ensure Ollama is installed and running locally with the `qwen3:0.6b` model pulled.
 
 **Execution:**
-The application provides a command-line interface via Python Fire.
-**Execution:**
+You can use `make run` to execute the entire RAG pipeline.
+The application provides a command-line interface via Python Fire.  
 *(Note: You can use `make install` to synchronize and install dependencies via `uv sync`.)*
 
 To operate the pipeline, you can utilize the Makefile aliases or run the exact underlying commands manually
 (command-line interface via Python Fire.):
 
-* **Index the Dataset (`make run`):**
+* **Index the Dataset (`make index`):**
   `uv run python3 -m src index --max_chunk_size=2000 --target_dir=data/raw/vllm-0.10.1`
 
 * **Search for a Single Query (`make search`):**
@@ -41,7 +41,7 @@ To operate the pipeline, you can utilize the Makefile aliases or run the exact u
   `./moulinette_pkg/moulinette-ubuntu list_valid_questions data/output/search_results/dataset_docs_public.json datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k 5`
 
 ## System Architecture
-The RAG pipeline follows a distinct linear flow to process and answer queries: `raw files -> indexing/chunking -> BM25 retrieval -> context stitching -> Ollama generation -> JSON output`.
+The RAG pipeline follows a distinct linear flow to process and answer queries: `raw files -> indexing/chunking -> BM25 retrieval -> retrieve documents -> Ollama generation -> JSON output`.
 
 * **Ingestion & Indexing:** `src/indexing/indexation.py` discovers files and launches indexing. `src/indexing/chunking.py` splits the files using `PythonChunker` and `MarkdownChunker`.
 * **Retrieval:** `src/retrieval/retriever.py` saves, loads, and queries the BM25 index.
@@ -61,17 +61,40 @@ The retrieval method leverages the `bm25s` library to construct a sparse, CPU-op
 * Document ids are converted to `int` and mapped back to `ChunkSource` objects for search results, preserving `file_path` and `text`.
 
 ## Performance Analysis
-Through iterative refinements, the recall system observed significant improvements:
-* Refining the chunking cuts directly improved code chunk indexation (21% -> 34%) and documentation chunk indexation (48% -> 55%).
-* Embedding file paths directly into the chunk context caused a substantial leap in recall (Code: 34% -> 45%, Doc: 55% -> 58%).
-* Implementing an LLM-based query expansion mechanism bumped up the scores (Code: 45% -> 47%, Doc: 58% -> 62%).
-* Widening the retrieval net to `k=5` proved highly effective, culminating in a strong peak score of 86 compared to 82.
+
+We measured and optimized `recall@k` metric (specifically evaluating the top 5 retrieved results). The required 80% (docs) and 50% (code) thresholds with `recall@5`.
+
+### Iterative Recall Progression `recall@1`
+
+| Optimization Phase | Recall (Code) | Recall (Docs) | Impact & Notes |
+| :--- | :--- | :--- | :--- |
+| **Baseline** | 21% | 48% | Basic BM25 retrieval with naive chunking. |
+| **Intelligent Chunking** | 34% | 55% | Implementing logical cuts and sliding window overlap prevented critical context from being split across chunks. |
+| **Split Indexes** | 31% | 41% | *Regression.* Separating code and doc into two distinct BM25 indexes harmed term-frequency statistics. Reverted to a unified index. |
+| **Metadata Injection** | 45% | 58% | Prepending the file path directly into the chunk context significantly boosted exact-match routing for the sparse retriever. |
+| **LLM Query Expansion** | 47% | 62% | Using `Qwen3-0.6B` to generate synonyms bridged the vocabulary gap between user queries and technical source code. |
+| **Extended File Discovery** | 46% | 61% | Adding a fallback chunker for non-standard files (e.g., `CMakeLists.txt`). While the expanded search space introduced slight noise (dropping strict top-1 scores by ~1%), it drastically improved overall top-5 retrieval, allowing the `k=5` recall to peak at 88%. |
+
+### Resultat final `recall@5`
+| Final result | Recall (Code) | Recall (Docs) | Impact & Notes |
+| :--- | :--- | :--- | :--- |
+|  | **`71%`** | **`87%`** | Using 5 or 10 sources is the most effective approach, retrieving too much information reduces the overall quality.|
+
+
+### System Performance & Bottlenecks
+
+* **Indexing Throughput:** The ingestion pipeline processes the entire repository, applies the `ChunkBuilder` strategies, and serializes the BM25 index well within the 5-minute maximum constraint.
+* **Warm Retrieval Latency:** By implementing a disk-persistent JSON query cache (`query_cache.json`), the system bypasses the LLM query expansion and BM25 tokenization for repeated queries. This drops warm retrieval times to near-zero, easily meeting the throughput requirement for batch processing 1000 questions.
+* **Query Expansion Overhead:** Utilizing the local `Qwen3-0.6B` model for synonym generation adds cold-start latency. Restricting the system prompt and lowering the temperature to 0.1 ensured the model outputted raw keywords without conversational filler, keeping token generation fast and efficient.
+* **Metadata vs. Semantic Search:** As demonstrated by the metrics progression, explicitly injecting metadata (file paths and section headers) into the chunk text provided the largest single jump in performance for the sparse BM25 retriever, proving to be a highly effective lightweight alternative to dense vector embeddings.
+
 
 ## Design Decisions
 * **Pydantic for Data Flow:** Models are strictly defined and serialized with Pydantic models and written as JSON. 
 * **CPU-Oriented & Local-First:** The code is CPU-oriented, uses sparse BM25 indexing, and relies on a local Ollama client (`qwen3:0.6b` at temperature 0.1).
-* **Context Stitching:** `_stitch_context()` formats each chunk as `--- Snippet from {file_path} ---` followed by the text. It truncates the final context string when it exceeds `max_char_length`.
-* **Python 3.10 Structural Pattern Matching:** `match node:` is used to route `ast.FunctionDef`, `ast.AsyncFunctionDef`, and `ast.ClassDef` inside the Python chunker.
+* **Context Stitching:** `_stitch_context()` This function is the pivot of the augmentation pipeline. It formats retrieved chunks as `--- Snippet from {file_path} ---` followed by the text. providing the LLM with explicit source identity to improve grounding and minimize hallucinations. It also enforces a strict `max_char_length` to ensure the prompt remains within the model's context window..
+**Hash Verification (Integrity):** To ensure data integrity, every critical file (index, chunk mappings, and query cache) is accompanied by a .hash file. Before loading, the system verifies the hash of the data file against its corresponding hash file to detect unauthorized modifications or data corruption.
+
 
 ## Challenges Faced
 * **Missing Files:** Only files with a suffix present in `self.chunkers` (`.py` and `.md`) are kept; exceptions are recorded in `failed_logs` and trigger an `IndexationError` if not empty.
@@ -83,8 +106,12 @@ To query the indexed files for specific knowledge and generate a response:
 * `python -m src answer --question="How does the ChunkBuilder work?"`
 
 ## Resources
-* Documentation for `bm25s`, Ollama, and `uv`.
-* **AI Usage:** Artificial Intelligence was utilized during the development lifecycle to generate structural documentation, refine chunking logic based on AST parsing, optimize prompt engineering for the generation phase, and formulate the README file.
+
+* **Ollama :** [Ollama - QuickStart](https://docs.ollama.com/quickstart)
+
+* **Langchain**: [RAG From Scratch](https://www.youtube.com/watch?v=wd7TZ4w1mSw&list=PLfaIDFEXuae2LXbO1_PKyVJiQ23ZztA0x)
+
+* **AI Usage:** AI was utilized during the development lifecycle to generate structural documentation, refine chunking logic based on AST parsing, optimize prompt engineering for the generation phase, and formulate the README file.
 
 
 ## Project Architecture

@@ -36,8 +36,9 @@ class Generator:
             requests.get("http://127.0.0.1:11434", timeout=20)
         except requests.exceptions.ConnectionError:
             raise GeneratorError(
-                "The Ollama server could not be found."
+                "The Ollama server could not be found. "
                 "Make sure it is running (command: `ollama serve`)."
+                " In another terminal window and try again."
             )
 
     @staticmethod
