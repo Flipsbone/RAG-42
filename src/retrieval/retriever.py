@@ -24,7 +24,6 @@ class Retriever:
         self.retriever = bm25s.BM25()
         self.chunks: list[ChunkSource] = []
         self._query_cache: dict[str, list[ChunkSource]] = {}
-        self.expanded_questions: list[str] = []
         self.generator = Generator()
 
     def save_index(self) -> None:
@@ -198,13 +197,15 @@ class Retriever:
             query_chunks.append(self.chunks[clean_id])
         return query_chunks
 
-    def _expand_query(self, question: str) -> None:
+    def _expand_query(self, question: str) -> str:
+        if self.generator is None:
+            return question
         try:
             expanded_terms = self.generator.generate_question(question)
-            combined_query = f"{question} {expanded_terms}"
-            self.expanded_questions.append(combined_query)
+            return f"{question} {expanded_terms}"
         except GeneratorError as e:
             print(f"Warning: Query expansion failed. Error: {e}")
+            return question
 
     def _execute_bm25_search(
             self,
@@ -222,14 +223,15 @@ class Retriever:
             Newly computed search results.
         """
         new_results: list[MinimalSearchResults] = []
+        expanded_questions: list[str] = []
 
         if not uncached_questions:
             return new_results
 
         for new_question in tqdm(
                 uncached_questions, desc="Expanding queries via LLM"):
-            self._expand_query(new_question)
-        queries_tokens = self._tokenizing(self.expanded_questions)
+            expanded_questions.append(self._expand_query(new_question))
+        queries_tokens = self._tokenizing(expanded_questions)
         docs_idx, _scores = self.retriever.retrieve(queries_tokens, k=k)
 
         for query, query_indices in zip(uncached_queries, docs_idx):
