@@ -59,7 +59,7 @@ class RagCLI:
         """
         if query == "":
             print("You must write something")
-            return 
+            return
         retriever = Retriever()
         retriever.load_index()
         unanswered_query: UnansweredQuestion = UnansweredQuestion(
@@ -123,7 +123,7 @@ class RagCLI:
         """
         if query == "":
             print("You must write something")
-            return 
+            return
         retriever = Retriever()
         retriever.load_index()
 
@@ -172,7 +172,8 @@ class RagCLI:
         except OSError as e:
             raise GeneratorError(
                 f"Dataset at {student_search_results_path} could not be read. "
-                "Did you launch search_dataset?") from e
+                f"Did you launch search_dataset? for "
+                f"`{answer_file.name}`") from e
 
         answers: list[MinimalAnswer] = []
 

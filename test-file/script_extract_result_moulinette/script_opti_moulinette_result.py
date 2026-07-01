@@ -18,7 +18,7 @@ def extraire_donnees():
     with open(out_path, "w", encoding="utf-8") as out_file:
         for item in results:
             question = item.get("question_str", "")
-            
+
             for source in item.get("retrieved_sources", []):
                 file_path = source.get("file_path")
                 start = source.get("first_character_index")
@@ -35,9 +35,10 @@ def extraire_donnees():
                             f"my_answered {mon_text}\n"
                             f"expected_ansered {le_text}\n"
                         )
-                        
+
                         out_file.write(resultat + "\n")
                         print(resultat)
+
 
 if __name__ == "__main__":
     extraire_donnees()

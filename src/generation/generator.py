@@ -68,7 +68,7 @@ class Generator:
 
             print(f"Processed {len(answered_results.search_results)} of "
                   f"{len(answered_results.search_results)} questions")
-            print(f"Saved student_search_results_and_answer to {output_file}")
+            print(f"Saved student_search_results_and_answer to {output_path}")
             save_hash_file(output_path)
         except OSError as e:
             raise GeneratorError(

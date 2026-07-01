@@ -70,7 +70,7 @@ answer: install
 
 answer_dataset: install
 	@echo "Running the program with answer..."
-	$(PYTHON) $(MAIN) $(ANSWER_DATASET_DOC)
+	$(PYTHON) $(MAIN) $(ANSWER_DATASET_CODE)
 
 moulinette: install
 	@echo "Running the program with moulinette..."

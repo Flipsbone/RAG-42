@@ -13,7 +13,7 @@ This project relies on `uv` for package management and uses Python >=3.13 featur
 
 **Execution:**
 You can use `make run` to execute the entire RAG pipeline.
-The application provides a command-line interface via Python Fire.  
+The programe provides a command-line interface via Python Fire.  
 *(Note: You can use `make install` to synchronize and install dependencies via `uv sync`.)*
 
 To operate the pipeline, you can utilize the Makefile aliases or run the exact underlying commands manually
@@ -41,7 +41,7 @@ To operate the pipeline, you can utilize the Makefile aliases or run the exact u
   `./moulinette_pkg/moulinette-ubuntu list_valid_questions data/output/search_results/dataset_docs_public.json datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k 5`
 
 ## System Architecture
-The RAG pipeline follows a distinct linear flow to process and answer queries: `raw files -> indexing/chunking -> BM25 retrieval -> retrieve documents -> Ollama generation -> JSON output`.
+The RAG pipeline follows a distinct linear flow to process and answer queries: `raw files -> indexing/chunking -> BM25 retrieval -> Context Stitching -> Ollama generation -> JSON output`.
 
 * **Ingestion & Indexing:** `src/indexing/indexation.py` discovers files and launches indexing. `src/indexing/chunking.py` splits the files using `PythonChunker` and `MarkdownChunker`.
 * **Retrieval:** `src/retrieval/retriever.py` saves, loads, and queries the BM25 index.
@@ -51,8 +51,14 @@ The RAG pipeline follows a distinct linear flow to process and answer queries: `
 
 ## Chunking Strategy
 The chunking system applies different strategies based on file extensions, capped at a `max_chunk_size` of 2000 characters. The current implementation uses zero overlap and preserves contiguous character ranges.
-* **Python Code (`.py`):** `PythonChunker` parses source text with `ast.parse()` and iterates over module-level nodes. Class children are wrapped in `NodeContext` to keep the parent class name, emitting context labels such as `Class: ... - Method: ...`.
-* **Markdown (`.md`):** `MarkdownChunker` uses `markdown-it-py` tokens to split the document into section-aware chunks. It preserves section context while building chunks, starting with a default `Section: Introduction`.
+* **Python Code (`.py`):** The `PythonChunker` utilizes `ast.parse()` to analyze the source text, iterating through module-level nodes. In this Abstract Syntax Tree (AST) context, "class children" (nested `def` methods and attributes) are wrapped within a `NodeContext`. 
+  * **Context Preservation:** Because the chunker splits code to adhere to strict character limits, isolated methods would normally lose their structural identity. The `NodeContext` solves this by explicitly memorizing the parent class name. 
+  * **Metadata Injection:** By prepending highly specific descriptive metadata labels to every chunk (e.g., `Class: ServeurOpenAI - Method: configurer_port`), I ensure the LLM always understands the exact architectural placement adding this code snippet.
+
+* **Markdown (`.md`):** `MarkdownChunker` uses `markdown-it-py` tokens to split the document into section like title `heading_open`. It preserves section context while building chunks.
+  * **Context Preservation:**: Maintains a `current_header` state. It assigns the current section title as the `context_name` for all subsequent text blocks until a new header is encountered. If no header exists, it defaults to `Section: Introduction`..
+  * **Metadata Injection**: Every chunk is injected with its parent section title and file path (e.g., `Section: Configuration | File: docs/guide.md`). This provides explicit "anchor points" for the BM25 sparse retriever, allowing it to differentiate between similarly phrased content across the repository.
+  * **Overflow Handling**: When a section exceeds `max_chunk_size`, the `ChunkBuilder` partitions the content into multiple chunks while **retaining the same parent `context_name`**. This ensures the LLM receives a coherent view of the information, regardless of which fragment is retrieved.
 
 ## Retrieval Method
 The retrieval method leverages the `bm25s` library to construct a sparse, CPU-optimized inverted index. 
