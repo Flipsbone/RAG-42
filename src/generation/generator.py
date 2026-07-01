@@ -1,4 +1,5 @@
 import ollama
+import requests
 from pathlib import Path
 from src.utils.security import save_hash_file
 from src.model.model_indexing import (
@@ -28,6 +29,16 @@ class Generator:
         self.client: ollama.Client = ollama.Client(
             host='http://127.0.0.1:11434'
         )
+        self._check_connection()
+
+    def _check_connection(self) -> None:
+        try:
+            requests.get("http://127.0.0.1:11434", timeout=20)
+        except requests.exceptions.ConnectionError:
+            raise GeneratorError(
+                "The Ollama server could not be found."
+                "Make sure it is running (command: `ollama serve`)."
+            )
 
     @staticmethod
     def save_answer(
