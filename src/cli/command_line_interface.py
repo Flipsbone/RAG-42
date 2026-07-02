@@ -65,7 +65,9 @@ class RagCLI:
         unanswered_query: UnansweredQuestion = UnansweredQuestion(
             question=query,
         )
-        search_results = retriever.bulk_search([unanswered_query], k)
+        search_results = retriever.bulk_search([unanswered_query],
+                                               k,
+                                               use_query_expansion=False)
         print(search_results.model_dump_json(indent=4))
 
     def search_dataset(
@@ -133,7 +135,10 @@ class RagCLI:
 
         unanswered_query = UnansweredQuestion(question=query)
         search_results: StudentSearchResults = (
-            retriever.bulk_search([unanswered_query], k))
+            retriever.bulk_search(
+                [unanswered_query],
+                k,
+                use_query_expansion=False))
         mini_search_result: MinimalSearchResults = (
             search_results.search_results[0])
 

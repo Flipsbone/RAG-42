@@ -253,7 +253,7 @@ class Retriever:
             self,
             queries: list[UnansweredQuestion],
             k: int,
-            use_query_expansion: bool = True) -> StudentSearchResults:
+            use_query_expansion: bool) -> StudentSearchResults:
         """Search for multiple questions and return structured results.
 
         Args:

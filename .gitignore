@@ -6,6 +6,5 @@ __pycache__/
 data/output/
 data/processed/
 data/chunks/
-.AI/
 test_pytest/
 test-file/
