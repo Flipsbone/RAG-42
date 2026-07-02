@@ -58,7 +58,7 @@ search: install
 
 search_dataset: install
 	@echo "Running the program with function search..."
-	$(PYTHON) $(MAIN) $(SEARCH_DCODE)
+	$(PYTHON) $(MAIN) $(SEARCH_DDOC)
 
 evaluate: install
 	@echo "Running the program with moulinette..."
@@ -76,7 +76,7 @@ moulinette: install
 	@echo "Running the program with moulinette..."
 	$(EVAL_SCRIPT) list_valid_questions \
 		$(RESULTS_DOC) \
-		$(DATASET_DOc) \
+		$(DATASET_DOC) \
 		--k $(K) \
 
 debug: install
