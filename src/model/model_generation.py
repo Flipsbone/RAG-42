@@ -14,4 +14,3 @@ class StudentSearchResultsAndAnswer(StudentSearchResults):
     """Search results collection containing generated answers."""
 
     search_results: Sequence[MinimalAnswer]
-
