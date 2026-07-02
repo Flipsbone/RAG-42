@@ -13,7 +13,10 @@ def main() -> int:
                 f"Indexation Error: Ignored {log['file']}: "
                 f"{log['error']}", file=sys.stderr)
         sys.exit(1)
-    except error.RetrieverError as e:
+    except (
+            error.RetrieverError,
+            error.FileSecurityError,
+            error.FileAccessError) as e:
         print(f"Retriever Error: {e}", file=sys.stderr)
         sys.exit(1)
     except error.GeneratorError as e:

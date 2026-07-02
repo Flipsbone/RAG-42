@@ -25,12 +25,14 @@ class RagCLI:
     def index(
             self, target_dir: str = "data/raw/vllm-0.10.1",
             max_chunk_size: int = 2000) -> None:
-        """
-        Indexes documents found in the target directory.
+        """1: Index documents found in the target directory.
 
         Args:
             target_dir: The folder path containing the raw documents.
             max_chunk_size: The maximum character limit for each text chunk.
+
+        Returns:
+            None.
         """
         if max_chunk_size > 2000:
             raise ValueError(
@@ -38,7 +40,7 @@ class RagCLI:
         if max_chunk_size < 1000:
             raise ValueError(
                 f"max_chunk_size : {max_chunk_size} must be > 1000"
-                "in order to have a good semantic")
+                " in order to have a good semantic")
         path = Path(target_dir)
         indexer = Indexation(path, (max_chunk_size - 1))
         indexer.processed_chunks()
@@ -49,9 +51,15 @@ class RagCLI:
         With exactly one query.
 
         Args:
-            query: What you want to know.
-            k: The maximum result of relevant snippets to retrieve.
+            query: The question to search for.
+            k: The maximum number of snippets to retrieve.
+
+        Returns:
+            None.
         """
+        if query == "":
+            print("You must write something")
+            return
         retriever = Retriever()
         retriever.load_index()
         unanswered_query: UnansweredQuestion = UnansweredQuestion(
@@ -66,15 +74,15 @@ class RagCLI:
                 "UnansweredQuestions/dataset_docs_public.json"),
             save_directory: str = "data/output/search_results",
             k: int = 10) -> None:
-        """
-        Process multiple questions from a JSON
-        dataset and save the search results.
+        """2: Process a question dataset and save the search results.
 
         Args:
-            dataset_path: Path to the input
-            JSON dataset (e.g., UnansweredQuestions).
+            dataset_path: Path to the input JSON dataset.
             save_directory: Directory where the output JSON will be saved.
             k: The maximum number of results to retrieve per question.
+
+        Returns:
+            None.
         """
         retriever = Retriever()
         retriever.load_index()
@@ -98,19 +106,28 @@ class RagCLI:
             for unanswered_question in unanswered_questions:
                 queries.append(unanswered_question)
 
-        search_results = retriever.bulk_search(queries, k)
+        search_results = retriever.bulk_search(
+            queries,
+            k,
+            use_query_expansion=False
+        )
         retriever.save_dataset(
             len(queries), dataset_file,
             save_file, search_results)
 
-    def answer(self, query: str, k: int = 10) -> None:
-        """
-        Answer a single question using the indexed knowledge base.
+    def answer(self, query: str = "", k: int = 10) -> None:
+        """Answer a single question using the indexed knowledge base.
 
         Args:
             query: The question to answer.
             k: The maximum number of relevant snippets to retrieve.
+
+        Returns:
+            None.
         """
+        if query == "":
+            print("You must write something")
+            return
         retriever = Retriever()
         retriever.load_index()
 
@@ -141,14 +158,14 @@ class RagCLI:
                 "data/output/search_results/dataset_docs_public.json"),
             save_directory: str = (
                 "data/output/search_results_and_answer")) -> None:
-        """
-        Process answer from a JSON
-        search results and save the search results and answer.
+        """3: Generate answers from saved search results and persist them.
 
         Args:
-            student_search_results_path: Path to the input
-            JSON output (e.g., search_results).
+            student_search_results_path: Path to the input search-results JSON.
             save_directory: Directory where the output JSON will be saved.
+
+        Returns:
+            None.
         """
         answer_file: Path = Path(student_search_results_path)
         try:
@@ -159,7 +176,8 @@ class RagCLI:
         except OSError as e:
             raise GeneratorError(
                 f"Dataset at {student_search_results_path} could not be read. "
-                "Did you launch search_dataset?") from e
+                f"Did you launch search_dataset? for "
+                f"`{answer_file.name}`") from e
 
         answers: list[MinimalAnswer] = []
 
@@ -202,6 +220,18 @@ class RagCLI:
                 "AnsweredQuestions/dataset_docs_public.json"),
             k: int = 10,
             max_context_length: int = 2000) -> None:
+        """4: Evaluate retrieved snippets against the labeled dataset.
+
+        Args:
+            student_search_results_path: Path to the student search-results
+                JSON.
+            dataset_path: Path to the labeled answered-question dataset.
+            k: The maximum number of sources considered for each question.
+            max_context_length: The maximum allowed context size.
+
+        Returns:
+            None.
+        """
 
         if max_context_length < 500:
             raise ValueError(

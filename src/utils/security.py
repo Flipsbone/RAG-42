@@ -4,7 +4,16 @@ from src.exceptions import FileSecurityError, FileAccessError
 
 
 def verify_file_hash(target_file: Path) -> None:
-    """Verifies if the current file hash matches the stored hash."""
+    """Verify that a file hash matches the stored signature.
+
+    Args:
+        target_file: The file whose companion ``.hash`` file should be
+            validated.
+
+    Raises:
+        FileAccessError: If the signature file is missing or cannot be read.
+        FileSecurityError: If the stored hash does not match the file.
+    """
     hash_path = target_file.with_suffix(target_file.suffix + ".hash")
     if not hash_path.exists():
         raise FileAccessError(
@@ -19,7 +28,17 @@ def verify_file_hash(target_file: Path) -> None:
 
 
 def calculate_file_hash(file_path: Path) -> str:
-    """Calculates SHA-256 hash."""
+    """Calculate the SHA-256 hash for a file.
+
+    Args:
+        file_path: The path to the file to hash.
+
+    Returns:
+        The hexadecimal SHA-256 digest for the file contents.
+
+    Raises:
+        FileAccessError: If the file cannot be read.
+    """
     sha256_hash = hashlib.sha256()
     try:
         with open(file_path, "rb") as f:
@@ -31,8 +50,15 @@ def calculate_file_hash(file_path: Path) -> str:
             f"Could not read file for hashing: {file_path}") from e
 
 
-def save_hash_file( target_file: Path) -> None:
-    """Generates a .hash file next to the target file."""
+def save_hash_file(target_file: Path) -> None:
+    """Write a companion ``.hash`` file for the given target file.
+
+    Args:
+        target_file: The file whose hash should be persisted.
+
+    Raises:
+        FileAccessError: If the hash file cannot be written.
+    """
     hash_path = target_file.with_suffix(target_file.suffix + ".hash")
     file_hash = calculate_file_hash(target_file)
     try:

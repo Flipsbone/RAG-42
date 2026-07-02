@@ -1,9 +1,12 @@
 import bm25s
 import Stemmer
+import shutil
+from tqdm import tqdm
 from src.utils.security import save_hash_file, verify_file_hash
 from pathlib import Path
 from pydantic import TypeAdapter
-from src.exceptions import RetrieverError, FileAccessError
+from src.generation.generator import Generator
+from src.exceptions import RetrieverError, FileAccessError, GeneratorError
 from src.model.model_indexing import ChunkSource
 from src.model.model_retrivial import (
     UnansweredQuestion,
@@ -13,15 +16,21 @@ from src.model.model_retrivial import (
 
 
 class Retriever:
+    """Build, persist, load, and query a BM25 retrieval index."""
+
     def __init__(self) -> None:
+        """Initialize the BM25 retriever and related caches."""
         self._stemmer = Stemmer.Stemmer("english")
         self.retriever = bm25s.BM25()
         self.chunks: list[ChunkSource] = []
+        self._query_cache: dict[str, list[ChunkSource]] = {}
+        self.generator: Generator | None = None
 
     def save_index(self) -> None:
         try:
             index_dir = Path("./data/processed/bm25_index")
-            index_dir.mkdir(parents=True, exist_ok=True)
+            if index_dir.exists():
+                shutil.rmtree(index_dir)
             self.retriever.save(str(index_dir))
             for file in index_dir.iterdir():
                 if file.is_file():
@@ -48,6 +57,7 @@ class Retriever:
         index_dir: Path = Path("./data/processed/bm25_index")
         chunks_dir: Path = Path("./data/processed/chunks")
         chunk_mapping_path: Path = chunks_dir / "chunk_mapping.json"
+        cache_path: Path = Path("./data/processed/cache/query_cache.json")
 
         if not index_dir.exists():
             raise RetrieverError(
@@ -55,6 +65,8 @@ class Retriever:
         for file in index_dir.iterdir():
             if file.is_file() and not file.name.endswith(".hash"):
                 verify_file_hash(file)
+        if cache_path.exists():
+            verify_file_hash(cache_path)
         if not chunk_mapping_path.exists():
             raise RetrieverError(
                 f"Chunk mapping file not found at {chunk_mapping_path}")
@@ -63,16 +75,48 @@ class Retriever:
 
         try:
             self.retriever = bm25s.BM25.load(str(index_dir))
-            with open(chunk_mapping_path, "r", encoding="utf-8") as f:
-                raw_data = f.read()
+            with open(chunk_mapping_path, "r", encoding="utf-8") as f_bm25:
+                raw_data_bm25 = f_bm25.read()
             self.chunks = (
-                TypeAdapter(list[ChunkSource]).validate_json(raw_data))
+                TypeAdapter(list[ChunkSource]).validate_json(raw_data_bm25))
+
+            if cache_path.exists():
+                with open(cache_path, "r", encoding="utf-8") as f_cache:
+                    raw_cache = f_cache.read()
+                adapter = TypeAdapter(dict[str, list[ChunkSource]])
+                self._query_cache = adapter.validate_json(raw_cache)
+            else:
+                self._query_cache = {}
 
         except Exception as e:
             raise RetrieverError(
                 f"Failed to load index or chunks: {str(e)}") from e
 
+    def _save_cache(self) -> None:
+        cache_dir = Path("./data/processed/cache")
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_dir / "query_cache.json"
+
+        try:
+            adapter = TypeAdapter(dict[str, list[ChunkSource]])
+            json_data = adapter.dump_json(self._query_cache, indent=4)
+
+            with open(cache_path, "wb") as f:
+                f.write(json_data)
+            save_hash_file(cache_path)
+        except (OSError, FileAccessError) as e:
+            error_msg = f"the file cache could not be save {str(e)}"
+            raise RetrieverError(error_msg) from e
+
     def _tokenizing(self, text_data: list[str]) -> list[str] | list[int]:
+        """Tokenize text for BM25 indexing or retrieval.
+
+        Args:
+            text_data: The input texts to tokenize.
+
+        Returns:
+            The tokenized representation expected by BM25S.
+        """
         text_data = bm25s.tokenize(
             texts=text_data,
             lower=True,
@@ -86,6 +130,14 @@ class Retriever:
     def build_index(
             self,
             chunks: list[ChunkSource]) -> None:
+        """Build the BM25 index from chunk sources.
+
+        Args:
+            chunks: The chunks to index.
+
+        Returns:
+            None.
+        """
 
         self.chunks = chunks
         expanded_corpus: list[str] = []
@@ -101,6 +153,20 @@ class Retriever:
             dataset_file: Path,
             save_file: Path,
             search_results: StudentSearchResults) -> None:
+        """Save search results to disk and hash the output.
+
+        Args:
+            nb_queries: The number of processed queries.
+            dataset_file: The source dataset file.
+            save_file: The directory where results should be saved.
+            search_results: The search results to serialize.
+
+        Returns:
+            None.
+
+        Raises:
+            RetrieverError: If the results cannot be written.
+        """
 
         print(f"Executing bulk search for {nb_queries} queries...")
         file_name: str = dataset_file.name
@@ -114,33 +180,127 @@ class Retriever:
             raise RetrieverError(
                 f"Dataset at {output_file} could not save.") from e
 
-    def bulk_search(
+    def _get_chunks_from_indices(
             self,
-            queries: list[UnansweredQuestion],
-            k: int) -> StudentSearchResults:
+            query_indices: list[int | str]) -> list[ChunkSource]:
+        """Resolve BM25 document indices back to chunk objects.
 
-        if k < 1:
-            raise RetrieverError("k must be > 0")
-        questions: list[str] = []
-        for query in queries:
-            questions.append(query.question)
+        Args:
+            query_indices: The retrieved document indices.
 
-        queries_tokens = self._tokenizing(questions)
-        docs_idx, scores = self.retriever.retrieve(queries_tokens, k=k)
+        Returns:
+            The corresponding chunk objects.
+        """
+        query_chunks: list[ChunkSource] = []
+        for doc_idx in query_indices:
+            clean_id = int(doc_idx)
+            query_chunks.append(self.chunks[clean_id])
+        return query_chunks
 
-        all_results: list[MinimalSearchResults] = []
-        for query, query_indices in zip(queries, docs_idx):
-            query_chunks: list[ChunkSource] = []
-            for doc_idx in query_indices:
-                clean_id = int(doc_idx)
-                actual_chunk = self.chunks[clean_id]
-                query_chunks.append(actual_chunk)
+    def _expand_query(self, question: str) -> str:
+        if self.generator is None:
+            self.generator = Generator()
+        try:
+            expanded_terms = self.generator.generate_question(question)
+            return f"{question} {expanded_terms}"
+        except GeneratorError as e:
+            print(f"Warning: Query expansion failed. Error: {e}")
+            return question
+
+    def _execute_bm25_search(
+            self,
+            uncached_queries: list[UnansweredQuestion],
+            uncached_questions: list[str],
+            k: int,
+            use_query_expansion: bool) -> list[MinimalSearchResults]:
+        """Run BM25 retrieval for queries not present in the cache.
+
+        Args:
+            uncached_queries: The unanswered query objects to search.
+            uncached_questions: The raw question strings for expansion.
+            k: The number of chunks to retrieve per query.
+
+        Returns:
+            Newly computed search results.
+        """
+        new_results: list[MinimalSearchResults] = []
+        expanded_questions: list[str] = []
+
+        if not uncached_questions:
+            return new_results
+
+        if use_query_expansion:
+            for new_question in tqdm(
+                    uncached_questions, desc="Expanding queries via LLM"):
+                expanded_questions.append(self._expand_query(new_question))
+        else:
+            expanded_questions = uncached_questions
+        queries_tokens = self._tokenizing(expanded_questions)
+        docs_idx, _scores = self.retriever.retrieve(queries_tokens, k=k)
+
+        for query, query_indices in zip(uncached_queries, docs_idx):
+            query_chunks = self._get_chunks_from_indices(query_indices)
+            self._query_cache[query.question] = query_chunks
             search_result = MinimalSearchResults(
                 question_id=query.question_id,
                 question_str=query.question,
                 retrieved_sources=query_chunks
             )
-            all_results.append(search_result)
+            new_results.append(search_result)
+        return new_results
+
+    def bulk_search(
+            self,
+            queries: list[UnansweredQuestion],
+            k: int,
+            use_query_expansion: bool = True) -> StudentSearchResults:
+        """Search for multiple questions and return structured results.
+
+        Args:
+            queries: The unanswered questions to retrieve for.
+            k: The number of chunks to retrieve per query.
+
+        Returns:
+            The structured search results for all queries.
+
+        Raises:
+            RetrieverError: If ``k`` is invalid.
+        """
+
+        if k < 1:
+            raise RetrieverError("k must be > 0")
+
+        all_results: list[MinimalSearchResults] = []
+        uncached_queries: list[UnansweredQuestion] = []
+        uncached_questions: list[str] = []
+        cache_updated = False
+
+        for query in queries:
+            if query.question in self._query_cache:
+                cached_chunks = self._query_cache[query.question]
+                limited_cached_chunks = cached_chunks[:k]
+                all_results.append(MinimalSearchResults(
+                    question_id=query.question_id,
+                    question_str=query.question,
+                    retrieved_sources=limited_cached_chunks
+                ))
+            else:
+                uncached_queries.append(query)
+                uncached_questions.append(query.question)
+
+        if uncached_questions:
+            new_results = self._execute_bm25_search(
+                uncached_queries,
+                uncached_questions,
+                k,
+                use_query_expansion
+            )
+            all_results.extend(new_results)
+            cache_updated = True
+
+        if cache_updated:
+            self._save_cache()
+
         search_results: StudentSearchResults = StudentSearchResults(
             search_results=all_results,
             k=k
