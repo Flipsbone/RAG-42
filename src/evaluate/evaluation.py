@@ -3,7 +3,7 @@ from src.model.model_retrivial import (
     RagDataset,
 )
 from src.exceptions import EvaluatError
-from src.model.model_generation import EvalSource
+from src.model.model_indexing import MinimalSource
 
 
 class Evaluator:
@@ -27,8 +27,8 @@ class Evaluator:
         self.real_answers: RagDataset = real_answers
         self.nb_sources: int = k
         self.max_context: int = max_context_length
-        self.my_info_recall: dict[str, list[EvalSource]] = {}
-        self.real_info_recall: dict[str, list[EvalSource]] = {}
+        self.my_info_recall: dict[str, list[MinimalSource]] = {}
+        self.real_info_recall: dict[str, list[MinimalSource]] = {}
 
     def check_size_chunk(self) -> None:
         """Validate that retrieved chunks do not exceed the context limit.
@@ -41,17 +41,18 @@ class Evaluator:
         """
         for search_result in self.my_answers.search_results:
             my_chunks = [
-                EvalSource(
+                MinimalSource(
                     file_path=my_chunk.file_path,
-                    first_index=my_chunk.first_character_index,
-                    last_index=my_chunk.last_character_index
+                    first_character_index=my_chunk.first_character_index,
+                    last_character_index=my_chunk.last_character_index
                 )
                 for my_chunk in search_result.retrieved_sources
             ]
             self.my_info_recall[search_result.question_id] = my_chunks
             if any(
-                (chunk.last_index - chunk.first_index + 1) >
-                    self.max_context for chunk in my_chunks):
+                (chunk.last_character_index - chunk.first_character_index + 1)
+                > self.max_context
+                    for chunk in my_chunks):
                 raise EvaluatError("Student data is invalid")
         print(f"Student data is valid: {True}")
 
@@ -68,10 +69,11 @@ class Evaluator:
             if hasattr(real_question, 'sources') and real_question.sources:
                 total_sourced_questions += 1
                 self.real_info_recall[real_question.question_id] = [
-                    EvalSource(
+                    MinimalSource(
                         file_path=real_source.file_path,
-                        first_index=real_source.first_character_index,
-                        last_index=real_source.last_character_index
+                        first_character_index=(
+                            real_source.first_character_index),
+                        last_character_index=real_source.last_character_index
                     )
                     for real_source in real_question.sources
                 ]
@@ -92,8 +94,8 @@ class Evaluator:
 
     def _overlap_calculator(
             self,
-            my_source: EvalSource,
-            real_source: EvalSource) -> bool:
+            my_source: MinimalSource,
+            real_source: MinimalSource) -> bool:
         """Determine whether two sources overlap enough to count as a match.
 
         Args:
@@ -107,11 +109,14 @@ class Evaluator:
         if my_source.file_path != real_source.file_path:
             return False
 
-        common_start: int = max(my_source.first_index, real_source.first_index)
-        common_end: int = min(my_source.last_index, real_source.last_index)
+        common_start: int = max(
+            my_source.first_character_index, real_source.first_character_index)
+        common_end: int = min(
+            my_source.last_character_index, real_source.last_character_index)
         union: int = common_end - common_start + 1
         total_lenght: int = (
-            real_source.last_index - real_source.first_index + 1)
+            real_source.last_character_index -
+            real_source.first_character_index + 1)
         score: float = (union / total_lenght) * 100
 
         return score >= 5
