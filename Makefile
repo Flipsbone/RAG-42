@@ -11,11 +11,11 @@ ANSWER = answer --query="How to configure OpenAI server" --k=1
 ANSWER_DATASET_DOC = answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer
 ANSWER_DATASET_CODE = answer_dataset --student_search_results_path data/output/search_results/dataset_code_public.json --save_directory data/output/search_results_and_answer
 EVAL_SCRIPT := ./moulinette_pkg/moulinette-ubuntu 
-RESULTS := data/output/search_results/dataset_docs_public.json
-DATASET := datasets_public/public/AnsweredQuestions/dataset_docs_public.json
-# RESULTS := data/output/search_results/dataset_code_public.json
-# DATASET := datasets_public/public/AnsweredQuestions/dataset_code_public.json
-K := 1
+RESULTS_DOC := data/output/search_results/dataset_docs_public.json
+DATASET_DOC := datasets_public/public/AnsweredQuestions/dataset_docs_public.json
+RESULTS_CODE := data/output/search_results/dataset_code_public.json
+DATASET_CODE := datasets_public/public/AnsweredQuestions/dataset_code_public.json
+K := 5
 CYAN  := \033[36m
 GREEN := \033[32m
 RESET := \033[0m
@@ -58,7 +58,7 @@ search: install
 
 search_dataset: install
 	@echo "Running the program with function search..."
-	$(PYTHON) $(MAIN) $(SEARCH_DDOC)
+	$(PYTHON) $(MAIN) $(SEARCH_DCODE)
 
 evaluate: install
 	@echo "Running the program with moulinette..."
@@ -75,8 +75,8 @@ answer_dataset: install
 moulinette: install
 	@echo "Running the program with moulinette..."
 	$(EVAL_SCRIPT) list_valid_questions \
-		$(RESULTS) \
-		$(DATASET) \
+		$(RESULTS_DOC) \
+		$(DATASET_DOc) \
 		--k $(K) \
 
 debug: install

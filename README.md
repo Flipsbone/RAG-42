@@ -9,7 +9,7 @@ This project implements a local Retrieval-Augmented Generation (RAG) pipeline de
 **Installation & Setup:**
 This project relies on `uv` for package management and uses Python >=3.13 features.
 * Install dependencies via `uv`.
-* Ensure Ollama is installed and running locally with the `qwen3:0.6b` model pulled.
+  * Ensure Ollama [is installed](https://ollama.com/) and running locally with the `qwen3:0.6b` model pulled  (command:`ollama pull qwen3:0.6b`).
 
 **Execution:**
 You can use `make run` to execute the entire RAG pipeline.
@@ -53,12 +53,12 @@ The RAG pipeline follows a distinct linear flow to process and answer queries: `
 The chunking system applies different strategies based on file extensions, capped at a `max_chunk_size` of 2000 characters. The current implementation uses zero overlap and preserves contiguous character ranges.
 * **Python Code (`.py`):** The `PythonChunker` utilizes `ast.parse()` to analyze the source text, iterating through module-level nodes. In this Abstract Syntax Tree (AST) context, "class children" (nested `def` methods and attributes) are wrapped within a `NodeContext`. 
   * **Context Preservation:** Because the chunker splits code to adhere to strict character limits, isolated methods would normally lose their structural identity. The `NodeContext` solves this by explicitly memorizing the parent class name. 
-  * **Metadata Injection:** By prepending highly specific descriptive metadata labels to every chunk (e.g., `Class: ServeurOpenAI - Method: configurer_port`), I ensure the LLM always understands the exact architectural placement adding this code snippet.
+  * **Metadata Injection:** By prepending specific descriptive metadata labels to every chunk (e.g., `Class: ServeurOpenAI - Method: configurer_port`), I ensure the LLM always understands the exact architectural placement adding this code snippet.
 
 * **Markdown (`.md`):** `MarkdownChunker` uses `markdown-it-py` tokens to split the document into section like title `heading_open`. It preserves section context while building chunks.
   * **Context Preservation:**: Maintains a `current_header` state. It assigns the current section title as the `context_name` for all subsequent text blocks until a new header is encountered. If no header exists, it defaults to `Section: Introduction`..
-  * **Metadata Injection**: Every chunk is injected with its parent section title and file path (e.g., `Section: Configuration | File: docs/guide.md`). This provides explicit "anchor points" for the BM25 sparse retriever, allowing it to differentiate between similarly phrased content across the repository.
-  * **Overflow Handling**: When a section exceeds `max_chunk_size`, the `ChunkBuilder` partitions the content into multiple chunks while **retaining the same parent `context_name`**. This ensures the LLM receives a coherent view of the information, regardless of which fragment is retrieved.
+  * **Metadata Injection**: Every chunk is injected with its parent section title and file path (e.g., `Section: Configuration | File: docs/guide.md`). This provides explicit text for the BM25 sparse retriever, allowing it to differentiate between similarly phrased content across the repository.
+  * **Overflow Handling**: If a section surpasses the `max_chunk_size`, the `ChunkBuilder` splits it into several smaller pieces. Each new chunk inherits the original context_name, guaranteeing the LLM always understands the broader context during retrieval.
 
 ## Retrieval Method
 The retrieval method leverages the `bm25s` library to construct a sparse, CPU-optimized inverted index. 
@@ -79,7 +79,7 @@ We measured and optimized `recall@k` metric (specifically evaluating the top 5 r
 | **Split Indexes** | 31% | 41% | *Regression.* Separating code and doc into two distinct BM25 indexes harmed term-frequency statistics. Reverted to a unified index. |
 | **Metadata Injection** | 45% | 58% | Prepending the file path directly into the chunk context significantly boosted exact-match routing for the sparse retriever. |
 | **LLM Query Expansion** | 47% | 62% | Using `Qwen3-0.6B` to generate synonyms bridged the vocabulary gap between user queries and technical source code. |
-| **Extended File Discovery** | 46% | 61% | Adding a fallback chunker for non-standard files (e.g., `CMakeLists.txt`). While the expanded search space introduced slight noise (dropping strict top-1 scores by ~1%), it drastically improved overall top-5 retrieval, allowing the `k=5` recall to peak at 88%. |
+| **Extended File Discovery** | 45% | 60% | Adding a fallback chunker for non-standard files (e.g., `CMakeLists.txt`). While the expanded search space introduced slight noise (dropping strict top-1 scores by ~5%), it drastically improved overall top-5 retrieval, allowing the `k=5` recall to peak at 88% on doc. |
 
 ### Resultat final `recall@5`
 | Final result | Recall (Code) | Recall (Docs) | Impact & Notes |
@@ -91,21 +91,43 @@ We measured and optimized `recall@k` metric (specifically evaluating the top 5 r
 
 * **Indexing Throughput:** The ingestion pipeline processes the entire repository, applies the `ChunkBuilder` strategies, and serializes the BM25 index well within the 5-minute maximum constraint.
 * **Warm Retrieval Latency:** By implementing a disk-persistent JSON query cache (`query_cache.json`), the system bypasses the LLM query expansion and BM25 tokenization for repeated queries. This drops warm retrieval times to near-zero, easily meeting the throughput requirement for batch processing 1000 questions.
-* **Query Expansion Overhead:** Utilizing the local `Qwen3-0.6B` model for synonym generation adds cold-start latency. Restricting the system prompt and lowering the temperature to 0.1 ensured the model outputted raw keywords without conversational filler, keeping token generation fast and efficient.
+* **Query Expansion Overhead:** Deploying a local `Qwen3-0.6B` model for synonym generation incurs an initial cold-start latency. To optimize efficiency, the system prompt was strictly constrained and the temperature lowered to 0.1. Also a variable `use_query_expansion=False` is indroduce inside the file command_line_interface.py to have the choice to use or not this feature . 
 * **Metadata vs. Semantic Search:** As demonstrated by the metrics progression, explicitly injecting metadata (file paths and section headers) into the chunk text provided the largest single jump in performance for the sparse BM25 retriever, proving to be a highly effective lightweight alternative to dense vector embeddings.
 
 
 ## Design Decisions
 * **Pydantic for Data Flow:** Models are strictly defined and serialized with Pydantic models and written as JSON. 
 * **CPU-Oriented & Local-First:** The code is CPU-oriented, uses sparse BM25 indexing, and relies on a local Ollama client (`qwen3:0.6b` at temperature 0.1).
-* **Context Stitching:** `_stitch_context()` This function is the pivot of the augmentation pipeline. It formats retrieved chunks as `--- Snippet from {file_path} ---` followed by the text. providing the LLM with explicit source identity to improve grounding and minimize hallucinations. It also enforces a strict `max_char_length` to ensure the prompt remains within the model's context window..
-**Hash Verification (Integrity):** To ensure data integrity, every critical file (index, chunk mappings, and query cache) is accompanied by a .hash file. Before loading, the system verifies the hash of the data file against its corresponding hash file to detect unauthorized modifications or data corruption.
+* **Context Stitching:** `_stitch_context()` This function is the pivot of the augmentation pipeline. It formats retrieved chunks as `--- Snippet from {file_path} ---` followed by the text. providing the LLM with explicit source identity to improve grounding and minimize hallucinations. It also enforces a strict `max_char_length` to ensure the prompt remains within the model's context window.  
+**Hash Verification (Integrity):** To ensure data integrity, every critical file (index, chunk mappings, and query cache) is accompanied by a `hash file`. Before loading, the system verifies the hash of the data file against its corresponding hash file to detect unauthorized modifications or data corruption.
 
 
 ## Challenges Faced
 * **Missing Files:** Only files with a suffix present in `self.chunkers` (`.py` and `.md`) are kept; exceptions are recorded in `failed_logs` and trigger an `IndexationError` if not empty.
 * **Context Loss in Code Segments:** Standard splits lose class associations. The solution was using AST to associate an AST node with an optional parent class name via `NodeContext`.
 * **Context Window Limits:** The generator requires truncation. `_stitch_context()` safely stops adding chunk contents at the maximum character bound (`max_char_length`) to avoid failures.
+* **Reducing Hallucinations:** `Context Stitching`: As the pivot of my augmentation pipeline, _stitch_context() explicitly labels retrieved text with its source file (--- Snippet from {file_path} ---). This grounds the LLM to prevent fabricated answers, i also applying a strict max_char_length to guarantee the final prompt fits within the model's context limits.
+
+
+## Bonus Features Implementation
+
+To maximize the efficiency, reliability, and accuracy of the Retrieval-Augmented Generation (RAG) pipeline, several advanced features were implemented beyond the mandatory requirements.
+
+### 1. Query Expansion (Vocabulary Bridging)
+Users rarely phrase questions using the exact vocabulary found in the technical source code or documentation. To bridge this gap, the pipeline intercepts queries before BM25 tokenization and uses the local `qwen3:0.6b` model to generate technical synonyms. Use the variable `use_query_expansion=True` in the file command_line_interface.py
+
+### 2. Disk-Persistent Result Caching
+To optimize warm retrieval throughput and avoid unnecessary LLM inferences for duplicate questions, a caching mechanism was implemented. the system saves a `query_cache.json` directly to the disk . Thanks to that the program bypasses both the LLM query expansion and BM25 tokenization phases. 
+
+### 3. Hash Verification for Data Integrity
+To ensure the integrity of the data pipeline a security layer using hash verification was introduced. Every critical file (such as the BM25 index, chunk mappings, and the query cache) is accompanied by a `.hash` file.
+
+### 4. Multi-threading for LLM Inference
+To accelerate the generation phase without causing CPU thread contention, Ollama client requests were explicitly optimized. The `client.chat` requests are configured with `num_threads: 4` in the generation options.
+
+### 5. Advanced BM25 Tokenization (Stemming)
+To improve the semantic matching capabilities of the sparse retriever, the system enhances the default indexing and tokenization implementation. An English stemmer (`Stemmer.Stemmer("english")`) is applied during the `bm25s.tokenize()` This reduces words to their root forms (e.g., mapping "configuring" and "configured" to the same base token).
+
 
 ## Example Usage
 To query the indexed files for specific knowledge and generate a response:

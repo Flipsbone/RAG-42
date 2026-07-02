@@ -190,4 +190,6 @@ class Generator:
 
             return answer
         except Exception as e:
-            raise GeneratorError(f"{e} \nDo ollama serve inside terminal ")
+            raise GeneratorError(
+                f"{e} \nDo inside the terminal "
+                f"(command:`ollama pull {self._model_name}`)")
