@@ -276,7 +276,10 @@ class Retriever:
         cache_updated = False
 
         for query in queries:
-            if query.question in self._query_cache:
+            if (
+                query.question in self._query_cache and
+                len(self._query_cache[query.question]) >= k
+            ):
                 cached_chunks = self._query_cache[query.question]
                 limited_cached_chunks = cached_chunks[:k]
                 all_results.append(MinimalSearchResults(
