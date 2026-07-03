@@ -6,7 +6,6 @@ from src.indexing.chunking import (
     MarkdownChunker,
     TextChunker)
 from src.model.model_indexing import ChunkSource
-from src.retrieval.retriever import Retriever
 from src.exceptions import IndexationError
 
 
@@ -38,11 +37,11 @@ class Indexation:
             path for path in self.data_dir.rglob("*")
             if path.suffix in self.chunkers]
 
-    def processed_chunks(self) -> None:
+    def processed_chunks(self) -> list[ChunkSource]:
         """Chunk the discovered files and persist the resulting index.
 
         Returns:
-            None.
+            A list of processed chunks.
 
         Raises:
             IndexationError: If one or more files fail during processing.
@@ -64,8 +63,7 @@ class Indexation:
                 failed_logs.append({"file": file_path.name, "error": str(e)})
                 continue
 
-        retriever = Retriever()
-        retriever.build_index(all_processed_chunks)
-        retriever.save_index()
         if failed_logs:
             raise IndexationError(failed_logs)
+
+        return all_processed_chunks

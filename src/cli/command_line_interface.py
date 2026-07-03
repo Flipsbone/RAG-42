@@ -43,7 +43,10 @@ class RagCLI:
                 " in order to have a good semantic")
         path = Path(target_dir)
         indexer = Indexation(path, (max_chunk_size - 1))
-        indexer.processed_chunks()
+        all_processed_chunks = indexer.processed_chunks()
+        retriever = Retriever()
+        retriever.build_index(all_processed_chunks)
+        retriever.save_index()
 
     def search(self, query: str = "", k: int = 10) -> None:
         """

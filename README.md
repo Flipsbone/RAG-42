@@ -107,7 +107,7 @@ We measured and optimized `recall@k` metric (specifically evaluating the top 5 r
 * **Context Loss in Code Segments:** Standard splits lose class associations. The solution was using AST to associate an AST node with an optional parent class name via `NodeContext`.
 * **Context Window Limits:** The generator requires truncation. `_stitch_context()` safely stops adding chunk contents at the maximum character bound (`max_char_length`) to avoid failures.
 * **Reducing Hallucinations:** `Context Stitching`: As the pivot of my augmentation pipeline, _stitch_context() explicitly labels retrieved text with its source file (--- Snippet from {file_path} ---). This grounds the LLM to prevent fabricated answers, i also applying a strict max_char_length to guarantee the final prompt fits within the model's context limits.
-
+* **Controlling Answer Length:** I tried to make the generated answers shorter and more direct by changing the instructions and settings, like num_predict. However, this did not work very well. When I forced the small qwen3:0.6b model to be brief, it often stopped in the middle of a sentence or missed important technical details. This showed that it is difficult to get short answers that still have all the right information.  
 
 ## Bonus Features Implementation
 
@@ -122,10 +122,7 @@ To optimize warm retrieval throughput and avoid unnecessary LLM inferences for d
 ### 3. Hash Verification for Data Integrity
 To ensure the integrity of the data pipeline a security layer using hash verification was introduced. Every critical file (such as the BM25 index, chunk mappings, and the query cache) is accompanied by a `.hash` file.
 
-### 4. Multi-threading for LLM Inference
-To accelerate the generation phase without causing CPU thread contention, Ollama client requests were explicitly optimized. The `client.chat` requests are configured with `num_threads: 4` in the generation options.
-
-### 5. Advanced BM25 Tokenization (Stemming)
+### 4. Advanced BM25 Tokenization (Stemming)
 To improve the semantic matching capabilities of the sparse retriever, the system enhances the default indexing and tokenization implementation. An English stemmer (`Stemmer.Stemmer("english")`) is applied during the `bm25s.tokenize()` This reduces words to their root forms (e.g., mapping "configuring" and "configured" to the same base token).
 
 

@@ -23,7 +23,8 @@ class Generator:
         """
 
         self._model_name = model_name
-        self.temperature: float = 0.1
+        self.temperature: float = 0.3
+        self.keep_alive: str = "1m"
         self.client: ollama.Client = ollama.Client(
             host='http://127.0.0.1:11434'
         )
@@ -31,7 +32,7 @@ class Generator:
 
     def _check_connection(self) -> None:
         try:
-            requests.get("http://127.0.0.1:11434", timeout=20)
+            requests.get("http://127.0.0.1:11434", timeout=45)
         except requests.exceptions.ConnectionError:
             raise GeneratorError(
                 "The Ollama server could not be found. "
@@ -106,6 +107,13 @@ class Generator:
         )
         return system_instruction
 
+    @staticmethod
+    def _chat_options() -> dict[str, float | int]:
+        return {
+            "temperature": 0.3,
+            "num_predict": 256,
+        }
+
     def generate_question(self, query: str) -> str:
         """Expand a query into related technical synonyms.
 
@@ -128,10 +136,8 @@ class Generator:
                 model=self._model_name,
                 messages=messages,
                 think=False,
-                options={
-                    "temperature": self.temperature,
-                    "num_threads": 4,
-                    },
+                options=self._chat_options(),
+                keep_alive=self.keep_alive
             )
             answer = str(response["message"]["content"].strip())
 
@@ -177,10 +183,8 @@ class Generator:
                 model=self._model_name,
                 messages=messages,
                 think=False,
-                options={
-                    "temperature": self.temperature,
-                    "num_threads": 4,
-                    },
+                options=self._chat_options(),
+                keep_alive=self.keep_alive
             )
             answer = str(response["message"]["content"].strip())
 
