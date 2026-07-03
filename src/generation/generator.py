@@ -14,8 +14,7 @@ class Generator:
 
     def __init__(
             self,
-            model_name: str = "qwen3:0.6b",
-            max_context_length: int = 2000) -> None:
+            model_name: str = "qwen3:0.6b") -> None:
         """Initialize the model client and generation settings.
 
         Args:
@@ -24,7 +23,6 @@ class Generator:
         """
 
         self._model_name = model_name
-        self.max_char_length: int = max_context_length
         self.temperature: float = 0.1
         self.client: ollama.Client = ollama.Client(
             host='http://127.0.0.1:11434'
@@ -84,15 +82,13 @@ class Generator:
             The formatted prompt context.
         """
         context_parts: list[str] = []
-        for source in chunks_source:
+        max_char_length: int = 4000
+        for source in chunks_source[:5]:
             header = f"--- Snippet from {source.file_path} ---"
             context_parts.append(f"{header}\n{source.text}\n")
 
         full_context = "\n".join(context_parts)
-        if len(full_context) > self.max_char_length:
-            full_context = full_context[:self.max_char_length:]
-
-        return full_context
+        return full_context[:max_char_length]
 
     @staticmethod
     def _build_prompt() -> str:

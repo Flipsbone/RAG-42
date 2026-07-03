@@ -269,6 +269,8 @@ class Retriever:
 
         if k < 1:
             raise RetrieverError("k must be > 0")
+        if k > 10:
+            raise RetrieverError("k must be <= 10")
 
         all_results: list[MinimalSearchResults] = []
         uncached_queries: list[UnansweredQuestion] = []
