@@ -240,7 +240,7 @@ class RagCLI:
 
         if max_context_length < 500:
             raise ValueError(
-                f"max_context_lengthz : {max_context_length} must be > 500"
+                f"max_context_length : {max_context_length} must be > 500"
                 "in order to have a proper answer")
 
         answer_file: Path = Path(student_search_results_path)
