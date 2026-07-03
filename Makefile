@@ -93,9 +93,6 @@ lint-strict:
 	uv run flake8 $(SRC)
 	uv run mypy --strict $(SRC)
 
-test:
-	uv run python -m pytest test_pytest/ -v
-
 clean:
 	@echo "Cleaning up..."
 	find . -type d -name ".mypy_cache" -exec rm -rf {} +
@@ -104,4 +101,4 @@ clean:
 	rm -rf data/processed
 	rm -rf data/output
 
-.PHONY: all install run index search search_dataset answer answer_dataset evaluate moulinette debug lint lint-strict test clean
+.PHONY: all install run index search search_dataset answer answer_dataset evaluate moulinette debug lint lint-strict clean
