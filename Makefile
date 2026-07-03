@@ -3,18 +3,18 @@ MAIN = -m src
 SRC = src/
 INDEX = index --max_chunk_size=2000 --target_dir=data/raw/vllm-0.10.1
 SEARCH = search --query="What are the default values for FP8_MIN and FP8_MAX constants in vLLM's triton_flash_attention module?" --k=1
-SEARCH_DDOC = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=5
-SEARCH_DCODE = search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_code_public.json --save_directory data/output/search_results --k=5
-EVALUATE_DOC = evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k=5 --max_context_length=2000
-EVALUATE_CODE = evaluate --student_search_results_path data/output/search_results/dataset_code_public.json --dataset_path datasets_public/public/AnsweredQuestions/dataset_code_public.json --k=5 --max_context_length=2000
+SEARCH_DDOC = search_dataset --dataset_path data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=5
+SEARCH_DCODE = search_dataset --dataset_path data/datasets_public/public/UnansweredQuestions/dataset_code_public.json --save_directory data/output/search_results --k=5
+EVALUATE_DOC = evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k=5 --max_context_length=2000
+EVALUATE_CODE = evaluate --student_search_results_path data/output/search_results/dataset_code_public.json --dataset_path data/datasets_public/public/AnsweredQuestions/dataset_code_public.json --k=5 --max_context_length=2000
 ANSWER = answer --query="How to configure OpenAI server?" --k=10
 ANSWER_DATASET_DOC = answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer
 ANSWER_DATASET_CODE = answer_dataset --student_search_results_path data/output/search_results/dataset_code_public.json --save_directory data/output/search_results_and_answer
 EVAL_SCRIPT := ./moulinette_pkg/moulinette-ubuntu 
 RESULTS_DOC := data/output/search_results/dataset_docs_public.json
-DATASET_DOC := datasets_public/public/AnsweredQuestions/dataset_docs_public.json
+DATASET_DOC := data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json
 RESULTS_CODE := data/output/search_results/dataset_code_public.json
-DATASET_CODE := datasets_public/public/AnsweredQuestions/dataset_code_public.json
+DATASET_CODE := data/datasets_public/public/AnsweredQuestions/dataset_code_public.json
 K := 5
 CYAN  := \033[36m
 GREEN := \033[32m
