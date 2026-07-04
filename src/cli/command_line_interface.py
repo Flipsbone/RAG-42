@@ -36,7 +36,7 @@ class RagCLI:
         """
         if max_chunk_size > 2000:
             raise ValueError(
-                f"max_chunk_size : {max_chunk_size} must be < 2000")
+                f"max_chunk_size : {max_chunk_size} must be <= 2000")
         if max_chunk_size < 1000:
             raise ValueError(
                 f"max_chunk_size : {max_chunk_size} must be > 1000"
@@ -75,7 +75,7 @@ class RagCLI:
 
     def search_dataset(
             self, dataset_path: str = (
-                "datasets_public/public/"
+                "data/datasets_public/public/"
                 "UnansweredQuestions/dataset_docs_public.json"),
             save_directory: str = "data/output/search_results",
             k: int = 10) -> None:
@@ -224,7 +224,7 @@ class RagCLI:
                 "data/output/search_results/dataset_docs_public.json"
             ),
             dataset_path: str = (
-                "datasets_public/public/"
+                "data/datasets_public/public/"
                 "AnsweredQuestions/dataset_docs_public.json"),
             k: int = 10,
             max_context_length: int = 2000) -> None:
@@ -245,6 +245,9 @@ class RagCLI:
             raise ValueError(
                 f"max_context_length : {max_context_length} must be > 500"
                 "in order to have a proper answer")
+        if max_context_length > 2000:
+            raise ValueError(
+                f"max_context_length : {max_context_length} must be <= 2000")
 
         answer_file: Path = Path(student_search_results_path)
         try:
