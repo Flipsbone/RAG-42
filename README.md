@@ -26,19 +26,19 @@ To operate the pipeline, you can utilize the Makefile aliases or run the exact u
   `uv run python3 -m src search --query="What are the default values for FP8_MIN and FP8_MAX constants in vLLM's triton_flash_attention module?" --k=1`
 
 * **Search Over a Dataset (`make search_dataset`):**
-  `uv run python3 -m src search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=5`
+  `uv run python3 -m src search_dataset --dataset_path data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=5`
 
 * **Evaluate Results (`make evaluate`):** 
-  `uv run python3 -m src evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k=5 --max_context_length=2000`
+  `uv run python3 -m src evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k=5 --max_context_length=2000`
 
 * **Generate an Answer for a Query (`make answer`):** 
-  `uv run python3 -m src answer --query="my question is" --k=1`
+  `uv run python3 -m src answer --query="what is VLLM ?" --k=1`
 
 * **Answer an Entire Dataset (`make answer_dataset`):** 
   `uv run python3 -m src answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer`
 
 * **Run Moulinette Evaluation (`make moulinette`):**
-  `./moulinette_pkg/moulinette-ubuntu list_valid_questions data/output/search_results/dataset_docs_public.json datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k 5`
+  `./moulinette_pkg/moulinette-ubuntu list_valid_questions data/output/search_results/dataset_docs_public.json data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k 5`
 
 ## System Architecture
 The RAG pipeline follows a distinct linear flow to process and answer queries: `raw files -> indexing/chunking -> BM25 retrieval -> Context Stitching -> Ollama generation -> JSON output`.
@@ -89,15 +89,15 @@ We measured and optimized `recall@k` metric (specifically evaluating the top 5 r
 
 ### System Performance & Bottlenecks
 
-* **Indexing Throughput:** The ingestion pipeline processes the entire repository, applies the `ChunkBuilder` strategies, and serializes the BM25 index well within the 5-minute maximum constraint.
+* **Indexing Throughput:** The ingestion pipeline processes the entire repository, applies the `ChunkBuilder` on strategies, and serializes the BM25 index well within the 5-minute maximum constraint.
 * **Warm Retrieval Latency:** By implementing a disk-persistent JSON query cache (`query_cache.json`), the system bypasses the LLM query expansion and BM25 tokenization for repeated queries. This drops warm retrieval times to near-zero, easily meeting the throughput requirement for batch processing 1000 questions.
-* **Query Expansion Overhead:** Deploying a local `Qwen3-0.6B` model for synonym generation incurs an initial cold-start latency. To optimize efficiency, the system prompt was strictly constrained and the temperature lowered to 0.1. Also a variable `use_query_expansion=False` is indroduce inside the file command_line_interface.py to have the choice to use or not this feature . 
+* **Query Expansion Overhead:** Deploying a local `Qwen3-0.6B` model for synonym generation incurs an initial cold-start latency. To optimize efficiency, the system prompt was strictly constrained and the temperature lowered to 0.3. Also a variable `use_query_expansion=False` is indroduce inside the file command_line_interface.py to have the choice to use or not this feature . 
 * **Metadata vs. Semantic Search:** As demonstrated by the metrics progression, explicitly injecting metadata (file paths and section headers) into the chunk text provided the largest single jump in performance for the sparse BM25 retriever, proving to be a highly effective lightweight alternative to dense vector embeddings.
 
 
 ## Design Decisions
 * **Pydantic for Data Flow:** Models are strictly defined and serialized with Pydantic models and written as JSON. 
-* **CPU-Oriented & Local-First:** The code is CPU-oriented, uses sparse BM25 indexing, and relies on a local Ollama client (`qwen3:0.6b` at temperature 0.1).
+* **CPU-Oriented & Local-First:** The code is CPU-oriented, uses sparse BM25 indexing, and relies on a local Ollama client (`qwen3:0.6b` at temperature 0.3).
 * **Context Stitching:** `_stitch_context()` This function is the pivot of the augmentation pipeline. It formats retrieved chunks as `--- Snippet from {file_path} ---` followed by the text. providing the LLM with explicit source identity to improve grounding and minimize hallucinations. It also enforces a strict `max_char_length` to ensure the prompt remains within the model's context window.  
 **Hash Verification (Integrity):** To ensure data integrity, every critical file (index, chunk mappings, and query cache) is accompanied by a `hash file`. Before loading, the system verifies the hash of the data file against its corresponding hash file to detect unauthorized modifications or data corruption.
 
@@ -128,7 +128,7 @@ To improve the semantic matching capabilities of the sparse retriever, the syste
 
 ## Example Usage
 To query the indexed files for specific knowledge and generate a response:
-* `python -m src answer --question="How does the ChunkBuilder work?"`
+* `python -m src answer --question="How to configure OpenAI server?"`
 
 ## Resources
 
