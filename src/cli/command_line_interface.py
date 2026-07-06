@@ -18,6 +18,7 @@ from src.exceptions import (
     GeneratorError,
     EvaluatError
 )
+from src.utils.security import verify_file_hash
 
 
 class RagCLI:
@@ -176,6 +177,7 @@ class RagCLI:
             None.
         """
         answer_file: Path = Path(student_search_results_path)
+        verify_file_hash(answer_file)
         try:
             with open(answer_file, "r") as file:
                 raw_data_answer: str = file.read()

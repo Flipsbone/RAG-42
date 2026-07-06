@@ -20,25 +20,39 @@ To operate the pipeline, you can utilize the Makefile aliases or run the exact u
 (command-line interface via Python Fire.):
 
 * **Index the Dataset (`make index`):**
-  `uv run python3 -m src index --max_chunk_size=2000 --target_dir=data/raw/vllm-0.10.1`
+  ```
+  uv run python3 -m src index --max_chunk_size=2000 --target_dir=data/raw/vllm-0.10.1
+  ```
 
 * **Search for a Single Query (`make search`):**
-  `uv run python3 -m src search --query="What are the default values for FP8_MIN and FP8_MAX constants in vLLM's triton_flash_attention module?" --k=1`
+  ```
+  uv run python3 -m src search --query="What are the default values for FP8_MIN and FP8_MAX constants in vLLM's triton_flash_attention module?" --k=1
+  ```
 
 * **Search Over a Dataset (`make search_dataset`):**
-  `uv run python3 -m src search_dataset --dataset_path data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=5`
+  ```
+  uv run python3 -m src search_dataset --dataset_path data/datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results --k=5
+  ```
 
 * **Evaluate Results (`make evaluate`):** 
-  `uv run python3 -m src evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k=5 --max_context_length=2000`
+  ```
+  uv run python3 -m src evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k=5 --max_context_length=2000
+  ```
 
 * **Generate an Answer for a Query (`make answer`):** 
-  `uv run python3 -m src answer --query="what is VLLM ?" --k=1`
+  ```
+  uv run python3 -m src answer --query="what is VLLM ?" --k=1
+  ```
 
 * **Answer an Entire Dataset (`make answer_dataset`):** 
-  `uv run python3 -m src answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer`
+  ```
+  uv run python3 -m src answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer
+  ```
 
 * **Run Moulinette Evaluation (`make moulinette`):**
-  `./moulinette_pkg/moulinette-ubuntu list_valid_questions data/output/search_results/dataset_docs_public.json data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k 5`
+  ```
+  ./moulinette_pkg/moulinette-ubuntu list_valid_questions data/output/search_results/dataset_docs_public.json data/datasets_public/public/AnsweredQuestions/dataset_docs_public.json --k 5
+  ```
 
 ## System Architecture
 The RAG pipeline follows a distinct linear flow to process and answer queries: `raw files -> indexing/chunking -> BM25 retrieval -> Context Stitching -> Ollama generation -> JSON output`.
